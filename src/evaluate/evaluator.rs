@@ -4,7 +4,7 @@ use crate::{
     diagnostics::DiagnosticMessage,
     parse::parser::{
         BinaryOperatorKind, BinaryOperatorToken, Program, SyntaxKind, SyntaxNode,
-        UnaryOperatorToken,
+        UnaryOperatorToken, UnaryOperatorKind,
     },
 };
 
@@ -134,7 +134,25 @@ impl Evaluator {
     }
 
     fn evaluate_unary_expression(&self, op: &UnaryOperatorToken, exp: &SyntaxNode) -> ResultType {
-        todo!()
+        let exp_result = self.evaluate_expression(exp);
+        match op.kind {
+            UnaryOperatorKind::Negative => self.evaluate_negative_expression(exp_result),
+            UnaryOperatorKind::Positive => self.evaluate_positive_expression(exp_result),
+        }
+    }
+
+    fn evaluate_negative_expression(&self, exp_result: ResultType) -> ResultType {
+        if let ResultType::IntegerResult(result) = exp_result {
+            return ResultType::IntegerResult(-result);
+        }
+        todo!("Invalid type for negative")
+    }
+
+    fn evaluate_positive_expression(&self, exp_result: ResultType) -> ResultType {
+        if let ResultType::IntegerResult(_) = exp_result {
+            return exp_result;
+        }
+        todo!("Invalid type for negative")
     }
 }
 

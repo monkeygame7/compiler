@@ -46,8 +46,8 @@ impl UnaryOperatorKind {
 }
 
 pub struct UnaryOperatorToken {
-    kind: UnaryOperatorKind,
-    token: SyntaxToken,
+    pub kind: UnaryOperatorKind,
+    pub token: SyntaxToken,
 }
 
 pub enum SyntaxKind {
@@ -141,49 +141,32 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, priority: usize) -> SyntaxNode {
-        match self.current().kind {
-            TokenKind::PlusToken(_) | TokenKind::DashToken(_) => self.parse_unary_expression(priority),
-            _ => self.parse_binary_expression(priority),
+        self.parse_binary_expression(priority)
+    }
+
+    fn parse_unary_expression(&mut self, kind: UnaryOperatorKind, priority: usize) -> SyntaxNode {
+        let operator = UnaryOperatorToken {
+            kind,
+            token: self.next(),
+        };
+        let expression = self.parse_expression(operator.kind.priority());
+        let span = operator.token.span.to(expression.span);
+        SyntaxNode {
+            kind: SyntaxKind::UnaryExpression(operator, Box::new(expression)),
+            span,
         }
     }
 
-    fn parse_unary_expression(&mut self, priority: usize) -> SyntaxNode {
-        let op_token = self.current();
-        let kind = match op_token.kind {
-            TokenKind::DashToken(_) => Some(UnaryOperatorKind::Negative),
-            TokenKind::PlusToken(_) => Some(UnaryOperatorKind::Positive),
-            _ => None,
-        };
-
-        kind.map(|kind| {
-            let operator = UnaryOperatorToken {
-                kind,
-                token: self.next(),
-            };
-            let exp = self.parse_expression(operator.kind.priority());
-            let span = operator.token.span.to(exp.span);
-
-            SyntaxNode {
-                kind: SyntaxKind::UnaryExpression(operator, Box::new(exp)),
-                span,
-            }
-        })
-        .unwrap_or_else(|| {
-            let next = self.next();
-            let span = next.span;
-            self.errors.push(DiagnosticMessage::for_range(
-                format!("Expected Unary operator but found {}", next.kind),
-                span,
-            ));
-            SyntaxNode {
-                kind: SyntaxKind::BadExpression,
-                span,
-            }
-        })
-    }
-
     fn parse_binary_expression(&mut self, priority: usize) -> SyntaxNode {
-        let mut left = self.parse_primary_expression();
+        let mut left = match self.current().kind {
+            TokenKind::DashToken(_) => {
+                self.parse_unary_expression(UnaryOperatorKind::Negative, priority)
+            }
+            TokenKind::PlusToken(_) => {
+                self.parse_unary_expression(UnaryOperatorKind::Positive, priority)
+            }
+            _ => self.parse_primary_expression(),
+        };
 
         loop {
             let kind = match self.current().kind {
