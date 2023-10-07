@@ -30,7 +30,23 @@ impl BinaryOperatorKind {
 }
 
 pub struct BinaryOperatorToken {
-    kind: BinaryOperatorKind,
+    pub kind: BinaryOperatorKind,
+    pub token: SyntaxToken,
+}
+
+pub enum UnaryOperatorKind {
+    Negative,
+    Positive,
+}
+
+impl UnaryOperatorKind {
+    fn priority(&self) -> usize {
+        3
+    }
+}
+
+pub struct UnaryOperatorToken {
+    kind: UnaryOperatorKind,
     token: SyntaxToken,
 }
 
@@ -38,13 +54,13 @@ pub enum SyntaxKind {
     BadExpression,
     IntegerExpression(i32),
     BinaryExpression(Box<SyntaxNode>, BinaryOperatorToken, Box<SyntaxNode>),
-    UnaryExpression(UnaryOperatorToken, Box<SyntaxNode>), // TODO!
+    UnaryExpression(UnaryOperatorToken, Box<SyntaxNode>),
     GroupExpression(SyntaxToken, Box<SyntaxNode>, SyntaxToken),
 }
 
 pub struct SyntaxNode {
-    kind: SyntaxKind,
-    span: TextSpan,
+    pub kind: SyntaxKind,
+    pub span: TextSpan,
 }
 
 pub struct Program {
@@ -52,7 +68,7 @@ pub struct Program {
     pub errors: Vec<DiagnosticMessage>,
 }
 
-impl Parser {
+impl Program {
     pub fn parse(text: String) -> Program {
         let mut lexer = Lexer::new(text);
         let mut tokens = Vec::new();
@@ -75,7 +91,9 @@ impl Parser {
 
         parser.parse_program()
     }
+}
 
+impl Parser {
     fn new(tokens: Vec<SyntaxToken>, errors: Vec<DiagnosticMessage>) -> Parser {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
@@ -123,7 +141,45 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, priority: usize) -> SyntaxNode {
-        self.parse_binary_expression(priority)
+        match self.current().kind {
+            TokenKind::PlusToken(_) | TokenKind::DashToken(_) => self.parse_unary_expression(priority),
+            _ => self.parse_binary_expression(priority),
+        }
+    }
+
+    fn parse_unary_expression(&mut self, priority: usize) -> SyntaxNode {
+        let op_token = self.current();
+        let kind = match op_token.kind {
+            TokenKind::DashToken(_) => Some(UnaryOperatorKind::Negative),
+            TokenKind::PlusToken(_) => Some(UnaryOperatorKind::Positive),
+            _ => None,
+        };
+
+        kind.map(|kind| {
+            let operator = UnaryOperatorToken {
+                kind,
+                token: self.next(),
+            };
+            let exp = self.parse_expression(operator.kind.priority());
+            let span = operator.token.span.to(exp.span);
+
+            SyntaxNode {
+                kind: SyntaxKind::UnaryExpression(operator, Box::new(exp)),
+                span,
+            }
+        })
+        .unwrap_or_else(|| {
+            let next = self.next();
+            let span = next.span;
+            self.errors.push(DiagnosticMessage::for_range(
+                format!("Expected Unary operator but found {}", next.kind),
+                span,
+            ));
+            SyntaxNode {
+                kind: SyntaxKind::BadExpression,
+                span,
+            }
+        })
     }
 
     fn parse_binary_expression(&mut self, priority: usize) -> SyntaxNode {
@@ -165,7 +221,7 @@ impl Parser {
                 let span = start_span.to(bad_token.span);
                 self.errors.push(DiagnosticMessage::for_range(
                     format!("Expected primary expression, found: {}", bad_token.kind),
-                    span,
+                    bad_token.span,
                 ));
                 SyntaxNode {
                     kind: SyntaxKind::BadExpression,
@@ -242,6 +298,14 @@ fn display_helper(
                 &child_padding, middle_marker, op.token.kind
             ))?;
             display_helper(&r, f, &child_padding, true)
+        }
+        SyntaxKind::UnaryExpression(op, exp) => {
+            f.write_fmt(format_args!("{}{} UnaryExpression\n", padding, marker))?;
+            f.write_fmt(format_args!(
+                "{}{} {}\n",
+                &child_padding, last_marker, op.token.kind
+            ))?;
+            display_helper(exp, f, &child_padding, true)
         }
         SyntaxKind::GroupExpression(_, exp, _) => {
             f.write_fmt(format_args!("{}{} GroupExpression\n", padding, marker))?;

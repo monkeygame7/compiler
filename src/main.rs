@@ -1,10 +1,12 @@
 use std::io::{self, Write};
 use colored::Colorize;
 
-use crate::parse::parser::Parser;
+use crate::parse::parser::{Parser, Program};
+use crate::evaluate::evaluator::Evaluator;
 
 mod diagnostics;
 mod parse;
+mod evaluate;
 
 fn main() -> io::Result<()> {
     loop {
@@ -17,12 +19,14 @@ fn main() -> io::Result<()> {
             break;
         }
 
-        let result = Parser::parse(buffer.to_owned());
+        let tree = Program::parse(buffer.to_owned());
+        let mut evaluator = Evaluator::new(tree);
+        let result = evaluator.evaluate();
 
-        if result.errors.is_empty() {
-            println!("{}", result.root);
+        if evaluator.errors.is_empty() {
+            println!("{}", result);
         } else {
-            for error in result.errors {
+            for error in evaluator.errors {
                 println!("{}", error.message);
                 let span = error.span;
                 let pre = &buffer[..span.start];
