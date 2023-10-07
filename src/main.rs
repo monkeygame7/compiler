@@ -1,10 +1,9 @@
-use std::{
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
-mod syntax;
+use crate::parse::parser::Parser;
+
 mod parse;
-use crate::{syntax::{TokenKind, Lexer}, parse::Parser};
+
 
 fn main() -> io::Result<()> {
     loop {
@@ -14,11 +13,12 @@ fn main() -> io::Result<()> {
         io::stdin().read_line(&mut buffer)?;
 
         if buffer.trim().is_empty() || buffer.trim() == "exit" {
-            break
+            break;
         }
 
-        let tree = Parser::parse(&buffer);
-        println!("{}", tree);
+        let result = Parser::parse(buffer);
+
+        println!("{}", result);
     }
 
     Ok(())
