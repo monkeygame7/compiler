@@ -1,9 +1,10 @@
 use std::io::{self, Write};
+use colored::Colorize;
 
 use crate::parse::parser::Parser;
 
+mod diagnostics;
 mod parse;
-
 
 fn main() -> io::Result<()> {
     loop {
@@ -16,9 +17,20 @@ fn main() -> io::Result<()> {
             break;
         }
 
-        let result = Parser::parse(buffer);
+        let result = Parser::parse(buffer.to_owned());
 
-        println!("{}", result);
+        if result.errors.is_empty() {
+            println!("{}", result.root);
+        } else {
+            for error in result.errors {
+                println!("{}", error.message);
+                let span = error.span;
+                let pre = &buffer[..span.start];
+                let highlight = &buffer[span.start..span.end].red();
+                let post = &buffer[span.end..];
+                println!("{}{}{}", pre, highlight, post);
+            }
+        }
     }
 
     Ok(())

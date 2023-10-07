@@ -1,8 +1,11 @@
 use std::fmt::Display;
 
+use crate::diagnostics::{DiagnosticMessage, TextSpan};
+
 pub struct Lexer {
     chars: Vec<char>,
     current_position: usize,
+    pub errors: Vec<DiagnosticMessage>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +43,7 @@ impl Display for TokenKind {
 #[derive(Clone)]
 pub struct SyntaxToken {
     pub kind: TokenKind,
-    pub position: usize,
+    pub span: TextSpan,
 }
 
 impl Lexer {
@@ -49,6 +52,7 @@ impl Lexer {
         Lexer {
             chars,
             current_position: 0,
+            errors: Vec::new(),
         }
     }
 
@@ -65,7 +69,7 @@ impl Lexer {
     }
 
     pub fn next_token(&mut self) -> SyntaxToken {
-        let position = self.current_position;
+        let previous_position = self.current_position;
         let kind = match self.next() {
             None => TokenKind::EOF,
             Some(c) => match c {
@@ -76,11 +80,20 @@ impl Lexer {
                 '(' => TokenKind::LeftParenthesisToken(c.to_string()),
                 ')' => TokenKind::RightParenthesisToken(c.to_string()),
                 c if c.is_whitespace() => self.read_whitespace(c),
-                c if c.is_numeric() => self.read_integer(c),
-                unrecognized => TokenKind::BadToken(unrecognized.to_string()),
+                c if c.is_numeric() => self.read_integer(c, previous_position),
+                unrecognized => {
+                    self.errors.push(DiagnosticMessage::for_range(
+                        format!("Unrecognized: \"{}\"", unrecognized),
+                        TextSpan::new(previous_position, self.current_position),
+                    ));
+                    TokenKind::BadToken(unrecognized.to_string())
+                }
             },
         };
-        SyntaxToken { kind, position }
+        SyntaxToken {
+            kind,
+            span: TextSpan::new(previous_position, self.current_position),
+        }
     }
 
     fn read_whitespace(&mut self, first_whitespace_char: char) -> TokenKind {
@@ -96,7 +109,7 @@ impl Lexer {
         TokenKind::WhiteSpace(whitespace)
     }
 
-    fn read_integer(&mut self, first_integer_char: char) -> TokenKind {
+    fn read_integer(&mut self, first_integer_char: char, start_position: usize) -> TokenKind {
         let mut integer_string = first_integer_char.to_string();
 
         while let Some(c) = self.peek() {
@@ -110,7 +123,13 @@ impl Lexer {
         let integer = integer_string.parse();
         match integer {
             Ok(i) => TokenKind::Integer(i),
-            Err(_) => TokenKind::BadToken(integer_string),
+            Err(_) => {
+                self.errors.push(DiagnosticMessage::for_range(
+                    format!("Expected int, but found: \"{}\"", integer_string),
+                    TextSpan::new(start_position, self.current_position),
+                ));
+                TokenKind::BadToken(integer_string)
+            }
         }
     }
 }
