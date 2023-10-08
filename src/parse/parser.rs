@@ -4,12 +4,6 @@ use crate::diagnostics::{DiagnosticMessage, TextSpan};
 
 use super::lexer::{Lexer, SyntaxToken, TokenKind};
 
-pub struct Parser {
-    tokens: Vec<SyntaxToken>,
-    current_position: usize,
-    errors: Vec<DiagnosticMessage>,
-}
-
 #[derive(Debug)]
 pub enum BinaryOperatorKind {
     Addition,
@@ -18,31 +12,14 @@ pub enum BinaryOperatorKind {
     Division,
 }
 
-impl BinaryOperatorKind {
-    fn priority(&self) -> usize {
-        match self {
-            BinaryOperatorKind::Addition => 1,
-            BinaryOperatorKind::Subtraction => 1,
-            BinaryOperatorKind::Multiplication => 2,
-            BinaryOperatorKind::Division => 2,
-        }
-    }
-}
-
-pub struct BinaryOperatorToken {
-    pub kind: BinaryOperatorKind,
-    pub token: SyntaxToken,
-}
-
 pub enum UnaryOperatorKind {
     Negative,
     Positive,
 }
 
-impl UnaryOperatorKind {
-    fn priority(&self) -> usize {
-        3
-    }
+pub struct BinaryOperatorToken {
+    pub kind: BinaryOperatorKind,
+    pub token: SyntaxToken,
 }
 
 pub struct UnaryOperatorToken {
@@ -66,6 +43,12 @@ pub struct SyntaxNode {
 pub struct Program {
     pub root: SyntaxNode,
     pub errors: Vec<DiagnosticMessage>,
+}
+
+pub struct Parser {
+    tokens: Vec<SyntaxToken>,
+    current_position: usize,
+    errors: Vec<DiagnosticMessage>,
 }
 
 impl Program {
@@ -243,6 +226,23 @@ impl Parser {
             kind: SyntaxKind::IntegerExpression(i),
             span: token.span,
         }
+    }
+}
+
+impl BinaryOperatorKind {
+    fn priority(&self) -> usize {
+        match self {
+            BinaryOperatorKind::Addition => 1,
+            BinaryOperatorKind::Subtraction => 1,
+            BinaryOperatorKind::Multiplication => 2,
+            BinaryOperatorKind::Division => 2,
+        }
+    }
+}
+
+impl UnaryOperatorKind {
+    fn priority(&self) -> usize {
+        3
     }
 }
 
