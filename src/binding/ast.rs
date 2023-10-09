@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    diagnostics::{TextSpan, DiagnosticBag},
+    diagnostics::{DiagnosticBag, TextSpan},
     parse::{
         lexer::{SyntaxToken, TokenKind},
         parser::{SyntaxKind, SyntaxNode, SyntaxTree},
@@ -71,7 +71,10 @@ impl Binder {
 
     fn bind_bad_expression(&self, span: TextSpan) -> AstNode {
         self.diagnostics.report_bad_expression(span);
-        AstNode{kind: AstNodeKind::BadNode, span}
+        AstNode {
+            kind: AstNodeKind::BadNode,
+            span,
+        }
     }
 
     fn bind_integer_expression(&self, value: i32, span: TextSpan) -> AstNode {
@@ -100,9 +103,13 @@ impl Binder {
             TokenKind::SlashToken(_) => BinaryOperatorKind::Divide,
             _ => {
                 let op_span = op.span;
-                self.diagnostics.report_unrecognized_binary_operator(op, op_span);
-                return AstNode{kind: AstNodeKind::BadNode, span}
-            },
+                self.diagnostics
+                    .report_unrecognized_binary_operator(op, op_span);
+                return AstNode {
+                    kind: AstNodeKind::BadNode,
+                    span,
+                };
+            }
         };
 
         let kind = AstNodeKind::BinaryExpression(Box::new(left), operator, Box::new(right));
@@ -124,6 +131,31 @@ impl Binder {
 
         AstNode { kind, span }
     }
+}
+
+impl AstNode {
+    pub fn visit(&self, visitor: &mut impl AstVisitor) {
+        match &self.kind {
+            AstNodeKind::BadNode => visitor.visit_bad_node(),
+            AstNodeKind::IntegerLiteral(value) => visitor.visit_integer(*value),
+            AstNodeKind::BinaryExpression(left, op, right) => {
+                left.visit(visitor);
+                right.visit(visitor);
+                visitor.visit_binary_expression(op)
+            }
+            AstNodeKind::UnaryExpression(op, expr) => {
+                expr.visit(visitor);
+                visitor.visit_unary_expression(op)
+            }
+        }
+    }
+}
+
+pub trait AstVisitor {
+    fn visit_integer(&mut self, value: i32);
+    fn visit_binary_expression(&mut self, op: &BinaryOperatorKind);
+    fn visit_unary_expression(&mut self, op: &UnaryOperatorKind);
+    fn visit_bad_node(&mut self);
 }
 
 impl Display for AstNode {
@@ -148,9 +180,7 @@ fn display_helper(
     };
 
     match &node.kind {
-        AstNodeKind::BadNode => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR"))
-        },
+        AstNodeKind::BadNode => f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR")),
         AstNodeKind::IntegerLiteral(i) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, i))
         }
@@ -168,7 +198,6 @@ fn display_helper(
 
 impl Display for BinaryOperatorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
         let s = match self {
             BinaryOperatorKind::Add => "+",
             BinaryOperatorKind::Subtract => "-",
@@ -181,7 +210,6 @@ impl Display for BinaryOperatorKind {
 
 impl Display for UnaryOperatorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
         let s = match self {
             UnaryOperatorKind::Identity => "+",
             UnaryOperatorKind::Negate => "-",

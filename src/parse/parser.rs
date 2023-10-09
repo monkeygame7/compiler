@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::diagnostics::{TextSpan, DiagnosticBag};
+use crate::diagnostics::{DiagnosticBag, TextSpan};
 
 use super::lexer::{Lexer, SyntaxToken, TokenKind};
 
@@ -81,7 +81,8 @@ impl Parser {
 
         let eof_token = self.next();
         if !matches!(eof_token.kind, TokenKind::EOF) {
-            self.diagnostics.report_unexpected_token(eof_token, TokenKind::EOF);
+            self.diagnostics
+                .report_unexpected_token(eof_token, TokenKind::EOF);
         }
         SyntaxTree {
             root: program,
@@ -106,7 +107,7 @@ impl Parser {
     fn parse_binary_expression(&mut self, priority: usize) -> SyntaxNode {
         let current = self.current();
         let mut left = match current.kind {
-            TokenKind::DashToken(_) | TokenKind::PlusToken(_) 
+            TokenKind::DashToken(_) | TokenKind::PlusToken(_)
                 // is this necessary?
                 if unary_operator_priority(current) >= priority =>
             {
@@ -147,7 +148,8 @@ impl Parser {
                 let start_span = self.current().span;
                 let bad_token = self.next();
                 let span = start_span.to(bad_token.span);
-                self.diagnostics.report_unexpected_token(bad_token, "<primary expression>");
+                self.diagnostics
+                    .report_unexpected_token(bad_token, "<primary expression>");
                 SyntaxNode {
                     kind: SyntaxKind::BadExpression,
                     span,
@@ -167,7 +169,10 @@ impl Parser {
                 span,
             },
             _ => {
-                self.diagnostics.report_unexpected_token(close, TokenKind::RightParenthesisToken(")".to_string()));
+                self.diagnostics.report_unexpected_token(
+                    close,
+                    TokenKind::RightParenthesisToken(")".to_string()),
+                );
                 SyntaxNode {
                     kind: SyntaxKind::BadExpression,
                     span,
@@ -226,10 +231,7 @@ fn display_helper(
         SyntaxKind::BadExpression => f.write_fmt(format_args!("{}{}\n", padding, marker)),
         SyntaxKind::IntegerExpression(_, i) => {
             f.write_fmt(format_args!("{}{} IntegerExpression\n", padding, marker))?;
-            f.write_fmt(format_args!(
-                "{}{} {}\n",
-                &child_padding, last_marker, i
-            ))
+            f.write_fmt(format_args!("{}{} {}\n", &child_padding, last_marker, i))
         }
         SyntaxKind::BinaryExpression(l, op, r) => {
             f.write_fmt(format_args!("{}{} BinaryExpression\n", padding, marker))?;
