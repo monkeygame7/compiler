@@ -1,37 +1,14 @@
 use std::fmt::Display;
 
-use crate::diagnostics::{DiagnosticMessage, TextSpan};
+use crate::diagnostics::{TextSpan, DiagnosticBag};
 
 use super::lexer::{Lexer, SyntaxToken, TokenKind};
 
-#[derive(Debug)]
-pub enum BinaryOperatorKind {
-    Addition,
-    Subtraction,
-    Multiplication,
-    Division,
-}
-
-pub enum UnaryOperatorKind {
-    Negative,
-    Positive,
-}
-
-pub struct BinaryOperatorToken {
-    pub kind: BinaryOperatorKind,
-    pub token: SyntaxToken,
-}
-
-pub struct UnaryOperatorToken {
-    pub kind: UnaryOperatorKind,
-    pub token: SyntaxToken,
-}
-
 pub enum SyntaxKind {
     BadExpression,
-    IntegerExpression(i32),
-    BinaryExpression(Box<SyntaxNode>, BinaryOperatorToken, Box<SyntaxNode>),
-    UnaryExpression(UnaryOperatorToken, Box<SyntaxNode>),
+    IntegerExpression(SyntaxToken, i32),
+    BinaryExpression(Box<SyntaxNode>, SyntaxToken, Box<SyntaxNode>),
+    UnaryExpression(SyntaxToken, Box<SyntaxNode>),
     GroupExpression(SyntaxToken, Box<SyntaxNode>, SyntaxToken),
 }
 
@@ -40,19 +17,19 @@ pub struct SyntaxNode {
     pub span: TextSpan,
 }
 
-pub struct Program {
+pub struct SyntaxTree {
     pub root: SyntaxNode,
-    pub errors: Vec<DiagnosticMessage>,
+    pub diagnostics: DiagnosticBag,
 }
 
 pub struct Parser {
     tokens: Vec<SyntaxToken>,
     current_position: usize,
-    errors: Vec<DiagnosticMessage>,
+    diagnostics: DiagnosticBag,
 }
 
-impl Program {
-    pub fn parse(text: String) -> Program {
+impl SyntaxTree {
+    pub fn parse(text: String) -> SyntaxTree {
         let mut lexer = Lexer::new(text);
         let mut tokens = Vec::new();
 
@@ -70,20 +47,20 @@ impl Program {
             }
         }
 
-        let parser = Parser::new(tokens, lexer.errors);
+        let parser = Parser::new(tokens, lexer.diagnostics);
 
         parser.parse_program()
     }
 }
 
 impl Parser {
-    fn new(tokens: Vec<SyntaxToken>, errors: Vec<DiagnosticMessage>) -> Parser {
+    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
         Parser {
             tokens,
             current_position: 0,
-            errors,
+            diagnostics,
         }
     }
 
@@ -99,27 +76,16 @@ impl Parser {
         current.clone()
     }
 
-    fn parse_program(mut self) -> Program {
+    fn parse_program(mut self) -> SyntaxTree {
         let program = self.parse_expression(0);
 
         let eof_token = self.next();
         if !matches!(eof_token.kind, TokenKind::EOF) {
-            let mut last_token;
-            loop {
-                last_token = self.next();
-                if matches!(last_token.kind, TokenKind::EOF) {
-                    break;
-                }
-            }
-            while !matches!(self.next().kind, TokenKind::EOF) {}
-            self.errors.push(DiagnosticMessage::for_range(
-                "Expected EOF".to_owned(),
-                eof_token.span.to(last_token.span),
-            ));
+            self.diagnostics.report_unexpected_token(eof_token, TokenKind::EOF);
         }
-        Program {
+        SyntaxTree {
             root: program,
-            errors: self.errors,
+            diagnostics: self.diagnostics,
         }
     }
 
@@ -127,49 +93,45 @@ impl Parser {
         self.parse_binary_expression(priority)
     }
 
-    fn parse_unary_expression(&mut self, kind: UnaryOperatorKind, priority: usize) -> SyntaxNode {
-        let operator = UnaryOperatorToken {
-            kind,
-            token: self.next(),
-        };
-        let expression = self.parse_expression(operator.kind.priority());
-        let span = operator.token.span.to(expression.span);
+    fn parse_unary_expression(&mut self, priority: usize) -> SyntaxNode {
+        let operator_token = self.next();
+        let expression = self.parse_expression(unary_operator_priority(&operator_token));
+        let span = operator_token.span.to(expression.span);
         SyntaxNode {
-            kind: SyntaxKind::UnaryExpression(operator, Box::new(expression)),
+            kind: SyntaxKind::UnaryExpression(operator_token, Box::new(expression)),
             span,
         }
     }
 
     fn parse_binary_expression(&mut self, priority: usize) -> SyntaxNode {
-        let mut left = match self.current().kind {
-            TokenKind::DashToken(_) => {
-                self.parse_unary_expression(UnaryOperatorKind::Negative, priority)
-            }
-            TokenKind::PlusToken(_) => {
-                self.parse_unary_expression(UnaryOperatorKind::Positive, priority)
+        let current = self.current();
+        let mut left = match current.kind {
+            TokenKind::DashToken(_) | TokenKind::PlusToken(_) 
+                // is this necessary?
+                if unary_operator_priority(current) >= priority =>
+            {
+                self.parse_unary_expression(priority)
             }
             _ => self.parse_primary_expression(),
         };
 
         loop {
-            let kind = match self.current().kind {
-                TokenKind::PlusToken(_) => BinaryOperatorKind::Addition,
-                TokenKind::DashToken(_) => BinaryOperatorKind::Subtraction,
-                TokenKind::StarToken(_) => BinaryOperatorKind::Multiplication,
-                TokenKind::SlashToken(_) => BinaryOperatorKind::Division,
+            match self.current().kind {
+                TokenKind::PlusToken(_)
+                | TokenKind::DashToken(_)
+                | TokenKind::StarToken(_)
+                | TokenKind::SlashToken(_) => (),
                 _ => break,
             };
-            if kind.priority() <= priority {
+            let operator_priority = binary_operator_priority(self.current());
+            if operator_priority <= priority {
                 break;
             }
-            let operator = BinaryOperatorToken {
-                kind,
-                token: self.next(),
-            };
-            let right = self.parse_expression(operator.kind.priority());
+            let operator_token = self.next();
+            let right = self.parse_expression(operator_priority);
             let span = left.span.to(right.span);
             left = SyntaxNode {
-                kind: SyntaxKind::BinaryExpression(Box::new(left), operator, Box::new(right)),
+                kind: SyntaxKind::BinaryExpression(Box::new(left), operator_token, Box::new(right)),
                 span,
             }
         }
@@ -179,16 +141,13 @@ impl Parser {
 
     fn parse_primary_expression(&mut self) -> SyntaxNode {
         match self.current().kind {
-            TokenKind::Integer(i) => self.parse_number_expression(i),
+            TokenKind::Integer(i) => self.parse_integer_expression(i),
             TokenKind::LeftParenthesisToken(_) => self.parse_group_expression(),
             _ => {
                 let start_span = self.current().span;
                 let bad_token = self.next();
                 let span = start_span.to(bad_token.span);
-                self.errors.push(DiagnosticMessage::for_range(
-                    format!("Expected primary expression, found: {}", bad_token.kind),
-                    bad_token.span,
-                ));
+                self.diagnostics.report_unexpected_token(bad_token, "<primary expression>");
                 SyntaxNode {
                     kind: SyntaxKind::BadExpression,
                     span,
@@ -208,10 +167,7 @@ impl Parser {
                 span,
             },
             _ => {
-                self.errors.push(DiagnosticMessage::for_range(
-                    format!("Expected ')', but found {}", close.kind),
-                    close.span,
-                ));
+                self.diagnostics.report_unexpected_token(close, TokenKind::RightParenthesisToken(")".to_string()));
                 SyntaxNode {
                     kind: SyntaxKind::BadExpression,
                     span,
@@ -220,29 +176,28 @@ impl Parser {
         }
     }
 
-    fn parse_number_expression(&mut self, i: i32) -> SyntaxNode {
+    fn parse_integer_expression(&mut self, value: i32) -> SyntaxNode {
         let token = self.next();
+        let span = token.span;
         SyntaxNode {
-            kind: SyntaxKind::IntegerExpression(i),
-            span: token.span,
+            kind: SyntaxKind::IntegerExpression(token, value),
+            span,
         }
     }
 }
 
-impl BinaryOperatorKind {
-    fn priority(&self) -> usize {
-        match self {
-            BinaryOperatorKind::Addition => 1,
-            BinaryOperatorKind::Subtraction => 1,
-            BinaryOperatorKind::Multiplication => 2,
-            BinaryOperatorKind::Division => 2,
-        }
+fn unary_operator_priority(token: &SyntaxToken) -> usize {
+    match token.kind {
+        TokenKind::PlusToken(_) | TokenKind::DashToken(_) => 3,
+        _ => 0,
     }
 }
 
-impl UnaryOperatorKind {
-    fn priority(&self) -> usize {
-        3
+fn binary_operator_priority(token: &SyntaxToken) -> usize {
+    match token.kind {
+        TokenKind::StarToken(_) | TokenKind::SlashToken(_) => 2,
+        TokenKind::PlusToken(_) | TokenKind::DashToken(_) => 1,
+        _ => 0,
     }
 }
 
@@ -269,16 +224,19 @@ fn display_helper(
 
     match &node.kind {
         SyntaxKind::BadExpression => f.write_fmt(format_args!("{}{}\n", padding, marker)),
-        SyntaxKind::IntegerExpression(i) => {
+        SyntaxKind::IntegerExpression(_, i) => {
             f.write_fmt(format_args!("{}{} IntegerExpression\n", padding, marker))?;
-            f.write_fmt(format_args!("{}{} {}\n", &child_padding, last_marker, i))
+            f.write_fmt(format_args!(
+                "{}{} {}\n",
+                &child_padding, last_marker, i
+            ))
         }
         SyntaxKind::BinaryExpression(l, op, r) => {
             f.write_fmt(format_args!("{}{} BinaryExpression\n", padding, marker))?;
             display_helper(&l, f, &child_padding, false)?;
             f.write_fmt(format_args!(
                 "{}{} {}\n",
-                &child_padding, middle_marker, op.token.kind
+                &child_padding, middle_marker, op.kind
             ))?;
             display_helper(&r, f, &child_padding, true)
         }
@@ -286,7 +244,7 @@ fn display_helper(
             f.write_fmt(format_args!("{}{} UnaryExpression\n", padding, marker))?;
             f.write_fmt(format_args!(
                 "{}{} {}\n",
-                &child_padding, last_marker, op.token.kind
+                &child_padding, middle_marker, op.kind
             ))?;
             display_helper(exp, f, &child_padding, true)
         }

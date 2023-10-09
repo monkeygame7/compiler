@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    diagnostics::{DiagnosticMessage, TextSpan},
+    diagnostics::{TextSpan, DiagnosticBag},
     parse::{
         lexer::{SyntaxToken, TokenKind},
         parser::{SyntaxKind, SyntaxNode, SyntaxTree},
@@ -10,10 +10,11 @@ use crate::{
 
 pub struct Ast {
     pub root: AstNode,
-    pub errors: Vec<DiagnosticMessage>,
+    pub diagnostics: DiagnosticBag,
 }
 
 pub enum AstNodeKind {
+    BadNode,
     IntegerLiteral(i32),
     BinaryExpression(Box<AstNode>, BinaryOperatorKind, Box<AstNode>),
     UnaryExpression(UnaryOperatorKind, Box<AstNode>),
@@ -37,22 +38,22 @@ pub enum UnaryOperatorKind {
 }
 
 pub struct Binder {
-    pub errors: Vec<DiagnosticMessage>,
+    pub diagnostics: DiagnosticBag,
 }
 
 impl Binder {
-    fn new() -> Self {
-        Self { errors: vec![] }
+    fn new(diagnostics: DiagnosticBag) -> Self {
+        Self { diagnostics }
     }
 
     pub fn bind(cst: SyntaxTree) -> Ast {
-        let binder = Binder::new();
+        let binder = Binder::new(cst.diagnostics);
         let root_span = cst.root.span;
         let root = binder.bind_syntax_node(cst.root, root_span);
 
         Ast {
             root,
-            errors: binder.errors,
+            diagnostics: binder.diagnostics,
         }
     }
 
@@ -69,7 +70,8 @@ impl Binder {
     }
 
     fn bind_bad_expression(&self, span: TextSpan) -> AstNode {
-        panic!("bad expression")
+        self.diagnostics.report_bad_expression(span);
+        AstNode{kind: AstNodeKind::BadNode, span}
     }
 
     fn bind_integer_expression(&self, value: i32, span: TextSpan) -> AstNode {
@@ -96,7 +98,11 @@ impl Binder {
             TokenKind::DashToken(_) => BinaryOperatorKind::Subtract,
             TokenKind::StarToken(_) => BinaryOperatorKind::Mulitply,
             TokenKind::SlashToken(_) => BinaryOperatorKind::Divide,
-            _ => panic!("unsupported binary operation"),
+            _ => {
+                let op_span = op.span;
+                self.diagnostics.report_unrecognized_binary_operator(op, op_span);
+                return AstNode{kind: AstNodeKind::BadNode, span}
+            },
         };
 
         let kind = AstNodeKind::BinaryExpression(Box::new(left), operator, Box::new(right));
@@ -142,8 +148,11 @@ fn display_helper(
     };
 
     match &node.kind {
+        AstNodeKind::BadNode => {
+            f.write_fmt(format_args!("{}{} {}", padding, marker, "ERROR"))
+        },
         AstNodeKind::IntegerLiteral(i) => {
-            f.write_fmt(format_args!("{}{} {}\n", &padding, marker, i))
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, i))
         }
         AstNodeKind::BinaryExpression(l, op, r) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, op))?;

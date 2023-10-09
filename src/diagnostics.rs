@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::{cell::Cell, fmt::Display};
+
+use crate::parse::lexer::{SyntaxToken, TokenKind};
 
 #[derive(Copy, Clone)]
 pub struct TextSpan {
@@ -41,5 +43,46 @@ impl DiagnosticMessage {
 impl Display for DiagnosticMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("ERR: {}", self.message))
+    }
+}
+
+pub struct DiagnosticBag {
+    pub messages: Cell<Vec<DiagnosticMessage>>,
+}
+
+impl DiagnosticBag {
+    pub fn new() -> Self {
+        Self {
+            messages: Cell::new(vec![]),
+        }
+    }
+
+    fn add_message(&self, message: String, span: TextSpan) {
+        let diagnostic = DiagnosticMessage::for_range(message, span);
+        let mut messages = self.messages.take();
+        messages.push(diagnostic);
+        self.messages.set(messages);
+    }
+
+    pub fn report_unrecognized_symbol(&self, unrecognized: String, span: TextSpan) {
+        self.add_message(format!("Unrecognized symbol '{}'", unrecognized), span)
+    }
+
+    pub fn report_unexpected_token(&self, given_token: SyntaxToken, expected_kind: impl Display) {
+        self.add_message(
+            format!("Expected '{}', but found '{}'", expected_kind, given_token),
+            given_token.span,
+        );
+    }
+
+    pub fn report_unrecognized_binary_operator(&self, operator: SyntaxToken, span: TextSpan) {
+        self.add_message(
+            format!("'{}' is not a recognized binary operator", operator),
+            span,
+        );
+    }
+
+    pub fn report_bad_expression(&self, span: TextSpan) {
+        self.add_message("Not a valid expression".to_string(), span);
     }
 }

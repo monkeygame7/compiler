@@ -36,11 +36,11 @@ fn main() -> io::Result<()> {
             println!("{}", tree.root);
         }
         let result = 0;//evaluator.evaluate();
-
-        if tree.errors.is_empty() {
+        let errors = tree.diagnostics.messages.take();
+        if errors.is_empty() {
             println!("{}", result);
         } else {
-            for error in tree.errors {
+            for error in errors {
                 println!("{}", error.message);
                 let span = error.span;
                 let pre = &buffer[..span.start];

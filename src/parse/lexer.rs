@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-use crate::diagnostics::{DiagnosticMessage, TextSpan};
+use crate::diagnostics::{DiagnosticBag, TextSpan};
 
 pub struct Lexer {
     chars: Vec<char>,
     current_position: usize,
-    pub errors: Vec<DiagnosticMessage>,
+    pub diagnostics: DiagnosticBag,
 }
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            TokenKind::EOF => "".to_owned(),
+            TokenKind::EOF => "<EOF>".to_owned(),
             TokenKind::BadToken(s) => s.clone(),
             TokenKind::WhiteSpace(s) => s.clone(),
             TokenKind::Integer(i) => i.to_string(),
@@ -46,13 +46,19 @@ pub struct SyntaxToken {
     pub span: TextSpan,
 }
 
+impl Display for SyntaxToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.kind))
+    }
+}
+
 impl Lexer {
     pub fn new(text: String) -> Lexer {
         let chars = text.chars().collect();
         Lexer {
             chars,
             current_position: 0,
-            errors: Vec::new(),
+            diagnostics: DiagnosticBag::new(),
         }
     }
 
@@ -82,10 +88,9 @@ impl Lexer {
                 c if c.is_whitespace() => self.read_whitespace(c),
                 c if c.is_numeric() => self.read_integer(c, previous_position),
                 unrecognized => {
-                    self.errors.push(DiagnosticMessage::for_range(
-                        format!("Unrecognized: \"{}\"", unrecognized),
-                        TextSpan::new(previous_position, self.current_position),
-                    ));
+                    let span = TextSpan::new(previous_position, self.current_position);
+                    self.diagnostics
+                        .report_unrecognized_symbol(unrecognized.to_string(), span);
                     TokenKind::BadToken(unrecognized.to_string())
                 }
             },
@@ -124,10 +129,9 @@ impl Lexer {
         match integer {
             Ok(i) => TokenKind::Integer(i),
             Err(_) => {
-                self.errors.push(DiagnosticMessage::for_range(
-                    format!("Expected int, but found: \"{}\"", integer_string),
-                    TextSpan::new(start_position, self.current_position),
-                ));
+                let span = TextSpan::new(start_position, self.current_position);
+                self.diagnostics
+                    .report_unrecognized_symbol(integer_string.to_owned(), span);
                 TokenKind::BadToken(integer_string)
             }
         }
