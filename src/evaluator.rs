@@ -1,6 +1,6 @@
 use crate::{
-    binding::ast::{Ast, AstNode, AstVisitor, BinaryOperatorKind, UnaryOperatorKind},
     diagnostics::DiagnosticBag,
+    visitor::AstVisitor, ast::{Ast, BinaryOperatorKind, UnaryOperatorKind},
 };
 
 pub struct Evaluator {
@@ -67,7 +67,7 @@ impl AstVisitor for EvaluatingVisitor {
                 };
                 self.stack.push(IntegerResult(result))
             }
-            _ => panic!("Illegal binary operation"),
+            _ => todo!("Unsupported binary operation"),
         }
     }
 
@@ -81,7 +81,7 @@ impl AstVisitor for EvaluatingVisitor {
                 };
                 self.stack.push(IntegerResult(result))
             }
-            _ => panic!("Illegal unary operation"),
+            _ => todo!("Unsupported unary operation"),
         }
     }
 

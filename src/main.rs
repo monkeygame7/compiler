@@ -1,14 +1,12 @@
 use colored::Colorize;
 use std::io::{self, Write};
 
-use crate::binding::ast::Binder;
-use crate::evaluator::Evaluator;
-use crate::parse::parser::SyntaxTree;
+use crate::{ast::parser::Parser, evaluator::Evaluator};
 
-mod binding;
+mod ast;
 mod diagnostics;
 mod evaluator;
-mod parse;
+mod visitor;
 
 fn main() -> io::Result<()> {
     let mut show_tree = true;
@@ -30,8 +28,7 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        let tree = SyntaxTree::parse(buffer.to_owned());
-        let tree = Binder::bind(tree);
+        let tree = Parser::parse(buffer.to_owned());
         if show_tree {
             println!("{}", tree.root);
         }

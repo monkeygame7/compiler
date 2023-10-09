@@ -14,27 +14,27 @@ pub enum TokenKind {
     BadToken(String),
     WhiteSpace(String),
     Integer(i32),
-    PlusToken(String),
-    DashToken(String),
-    StarToken(String),
-    SlashToken(String),
-    LeftParenthesisToken(String),
-    RightParenthesisToken(String),
+    PlusToken,
+    DashToken,
+    StarToken,
+    SlashToken,
+    LeftParenthesisToken,
+    RightParenthesisToken,
 }
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             TokenKind::EOF => "<EOF>".to_owned(),
-            TokenKind::BadToken(s) => s.clone(),
-            TokenKind::WhiteSpace(s) => s.clone(),
+            TokenKind::BadToken(s) => s.to_owned(),
+            TokenKind::WhiteSpace(s) => s.to_owned(),
             TokenKind::Integer(i) => i.to_string(),
-            TokenKind::PlusToken(s) => s.clone(),
-            TokenKind::DashToken(s) => s.clone(),
-            TokenKind::StarToken(s) => s.clone(),
-            TokenKind::SlashToken(s) => s.clone(),
-            TokenKind::LeftParenthesisToken(s) => s.clone(),
-            TokenKind::RightParenthesisToken(s) => s.clone(),
+            TokenKind::PlusToken => "+".to_owned(),
+            TokenKind::DashToken => "-".to_owned(),
+            TokenKind::StarToken => "*".to_owned(),
+            TokenKind::SlashToken => "/".to_owned(),
+            TokenKind::LeftParenthesisToken => "(".to_owned(),
+            TokenKind::RightParenthesisToken => ")".to_owned(),
         };
         f.write_str(&s)
     }
@@ -79,12 +79,12 @@ impl Lexer {
         let kind = match self.next() {
             None => TokenKind::EOF,
             Some(c) => match c {
-                '+' => TokenKind::PlusToken(c.to_string()),
-                '-' => TokenKind::DashToken(c.to_string()),
-                '*' => TokenKind::StarToken(c.to_string()),
-                '/' => TokenKind::SlashToken(c.to_string()),
-                '(' => TokenKind::LeftParenthesisToken(c.to_string()),
-                ')' => TokenKind::RightParenthesisToken(c.to_string()),
+                '+' => TokenKind::PlusToken,
+                '-' => TokenKind::DashToken,
+                '*' => TokenKind::StarToken,
+                '/' => TokenKind::SlashToken,
+                '(' => TokenKind::LeftParenthesisToken,
+                ')' => TokenKind::RightParenthesisToken,
                 c if c.is_whitespace() => self.read_whitespace(c),
                 c if c.is_numeric() => self.read_integer(c, previous_position),
                 unrecognized => {
