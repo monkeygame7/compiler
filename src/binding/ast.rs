@@ -149,7 +149,7 @@ fn display_helper(
 
     match &node.kind {
         AstNodeKind::BadNode => {
-            f.write_fmt(format_args!("{}{} {}", padding, marker, "ERROR"))
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR"))
         },
         AstNodeKind::IntegerLiteral(i) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, i))
