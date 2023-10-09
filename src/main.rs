@@ -1,15 +1,17 @@
 use colored::Colorize;
 use std::io::{self, Write};
 
-use crate::evaluate::evaluator::Evaluator;
-use crate::parse::parser::{Parser, Program};
+use crate::parse::parser::SyntaxTree;
+use crate::binding::ast::Binder;
+
 
 mod diagnostics;
-mod evaluate;
 mod parse;
+mod binding;
+mod evaluator;
 
 fn main() -> io::Result<()> {
-    let mut show_tree = false;
+    let mut show_tree = true;
     loop {
         let mut buffer = String::new();
         print!("» ");
@@ -28,17 +30,17 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        let tree = Program::parse(buffer.to_owned());
+        let tree = SyntaxTree::parse(buffer.to_owned());
+        let tree = Binder::bind(tree);
         if show_tree {
             println!("{}", tree.root);
         }
-        let mut evaluator = Evaluator::new(tree);
-        let result = evaluator.evaluate();
+        let result = 0;//evaluator.evaluate();
 
-        if evaluator.errors.is_empty() {
+        if tree.errors.is_empty() {
             println!("{}", result);
         } else {
-            for error in evaluator.errors {
+            for error in tree.errors {
                 println!("{}", error.message);
                 let span = error.span;
                 let pre = &buffer[..span.start];
