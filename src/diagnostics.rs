@@ -2,7 +2,7 @@ use std::{cell::Cell, fmt::Display};
 
 use crate::{ast::lexer::SyntaxToken, evaluator::ResultType};
 
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct TextSpan {
     pub start: usize,
     pub end: usize,
