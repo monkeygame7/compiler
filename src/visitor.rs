@@ -73,35 +73,3 @@ fn display_helper(
     }
 }
 
-impl Display for BinaryOperatorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            BinaryOperatorKind::Add => "+",
-            BinaryOperatorKind::Subtract => "-",
-            BinaryOperatorKind::Mulitply => "*",
-            BinaryOperatorKind::Divide => "/",
-            BinaryOperatorKind::LogicalAnd => "&&",
-            BinaryOperatorKind::LogicalOr => "||",
-            BinaryOperatorKind::BitwiseAnd => "&",
-            BinaryOperatorKind::BitwiseOr => "|",
-            BinaryOperatorKind::Equals => "==",
-            BinaryOperatorKind::NotEquals => "!=",
-            BinaryOperatorKind::LessThan => "<",
-            BinaryOperatorKind::LessThanOrEquals => "<=",
-            BinaryOperatorKind::GreaterThan => ">",
-            BinaryOperatorKind::GreaterThanOrEquals => ">=",
-        };
-        f.write_str(s)
-    }
-}
-
-impl Display for UnaryOperatorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            UnaryOperatorKind::Identity => "+",
-            UnaryOperatorKind::Negate => "-",
-            UnaryOperatorKind::LogicalNot => "!",
-        };
-        f.write_str(s)
-    }
-}
