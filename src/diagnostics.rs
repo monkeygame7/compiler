@@ -1,6 +1,6 @@
 use std::{cell::Cell, fmt::Display};
 
-use crate::ast::lexer::SyntaxToken;
+use crate::{ast::lexer::SyntaxToken, evaluator::ResultType};
 
 #[derive(Copy, Clone)]
 pub struct TextSpan {
@@ -75,7 +75,7 @@ impl DiagnosticBag {
         );
     }
 
-    pub fn report_unrecognized_binary_operator(
+    pub fn report_unsupported_binary_operator(
         &self,
         l_type: impl Display,
         op: impl Display,
@@ -91,9 +91,14 @@ impl DiagnosticBag {
         );
     }
 
-    pub fn report_unrecognized_unary_operator(&self, operator: SyntaxToken, span: TextSpan) {
+    pub fn report_unsupported_unary_operator(
+        &self,
+        operator: impl Display,
+        exp_type: impl Display,
+        span: TextSpan,
+    ) {
         self.add_message(
-            format!("'{}' is not a recognized unary operator", operator),
+            format!("'{}' is not a supported for '{}'", operator, exp_type),
             span,
         );
     }

@@ -10,16 +10,39 @@ pub struct Lexer {
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
+    // randos
     EOF,
     BadToken(String),
     WhiteSpace(String),
+
+    // literals
     Integer(i32),
-    PlusToken,
-    DashToken,
-    StarToken,
-    SlashToken,
-    LeftParenthesisToken,
-    RightParenthesisToken,
+    Boolean(bool),
+    Identifier(String),
+
+    // int operators
+    Plus,
+    Dash,
+    Star,
+    Slash,
+
+    // bool operators
+    Ampersand,
+    AmpersandAmpersand,
+    Pipe,
+    PipePipe,
+    Bang,
+    // mixed operators
+    EqualsEquals,
+    BangEquals,
+    LeftAngleBracket,
+    RightAngleBracket,
+    LeftAngleEquals,
+    RightAngleEquals,
+
+    //organizational
+    LeftParenthesis,
+    RightParenthesis,
 }
 
 impl Display for TokenKind {
@@ -29,12 +52,25 @@ impl Display for TokenKind {
             TokenKind::BadToken(s) => s.to_owned(),
             TokenKind::WhiteSpace(s) => s.to_owned(),
             TokenKind::Integer(i) => i.to_string(),
-            TokenKind::PlusToken => "+".to_owned(),
-            TokenKind::DashToken => "-".to_owned(),
-            TokenKind::StarToken => "*".to_owned(),
-            TokenKind::SlashToken => "/".to_owned(),
-            TokenKind::LeftParenthesisToken => "(".to_owned(),
-            TokenKind::RightParenthesisToken => ")".to_owned(),
+            TokenKind::Boolean(b) => b.to_string(),
+            TokenKind::Identifier(s) => s.to_owned(),
+            TokenKind::Plus => "+".to_owned(),
+            TokenKind::Dash => "-".to_owned(),
+            TokenKind::Star => "*".to_owned(),
+            TokenKind::Slash => "/".to_owned(),
+            TokenKind::Ampersand => "&".to_owned(),
+            TokenKind::AmpersandAmpersand => "&&".to_owned(),
+            TokenKind::Pipe => "|".to_owned(),
+            TokenKind::PipePipe => "||".to_owned(),
+            TokenKind::Bang => "!".to_owned(),
+            TokenKind::EqualsEquals => "==".to_owned(),
+            TokenKind::BangEquals => "!=".to_owned(),
+            TokenKind::LeftAngleBracket => "<".to_owned(),
+            TokenKind::RightAngleBracket => ">".to_owned(),
+            TokenKind::LeftAngleEquals => "<=".to_owned(),
+            TokenKind::RightAngleEquals => ">=".to_owned(),
+            TokenKind::LeftParenthesis => "(".to_owned(),
+            TokenKind::RightParenthesis => ")".to_owned(),
         };
         f.write_str(&s)
     }
@@ -79,22 +115,47 @@ impl Lexer {
         let kind = match self.next() {
             None => TokenKind::EOF,
             Some(c) => match c {
-                '+' => TokenKind::PlusToken,
-                '-' => TokenKind::DashToken,
-                '*' => TokenKind::StarToken,
-                '/' => TokenKind::SlashToken,
-                '(' => TokenKind::LeftParenthesisToken,
-                ')' => TokenKind::RightParenthesisToken,
+                '+' => TokenKind::Plus,
+                '-' => TokenKind::Dash,
+                '*' => TokenKind::Star,
+                '/' => TokenKind::Slash,
+                '(' => TokenKind::LeftParenthesis,
+                ')' => TokenKind::RightParenthesis,
+                '&' => self.match_potential_double(
+                    '&',
+                    TokenKind::AmpersandAmpersand,
+                    TokenKind::Ampersand,
+                ),
+                '|' => self.match_potential_double('|', TokenKind::PipePipe, TokenKind::Pipe),
+                '!' => self.match_potential_double('=', TokenKind::Bang, TokenKind::BangEquals),
+                '=' => match self.next() {
+                    Some('=') => TokenKind::EqualsEquals,
+                    Some(c) => TokenKind::BadToken(c.to_string()),
+                    None => TokenKind::BadToken("=".to_string()),
+                },
+                '<' => self.match_potential_double(
+                    '=',
+                    TokenKind::LeftAngleEquals,
+                    TokenKind::LeftAngleBracket,
+                ),
+                '>' => self.match_potential_double(
+                    '=',
+                    TokenKind::RightAngleEquals,
+                    TokenKind::RightAngleBracket,
+                ),
                 c if c.is_whitespace() => self.read_whitespace(c),
-                c if c.is_numeric() => self.read_integer(c, previous_position),
-                unrecognized => {
-                    let span = TextSpan::new(previous_position, self.current_position);
-                    self.diagnostics
-                        .report_unrecognized_symbol(unrecognized.to_string(), span);
-                    TokenKind::BadToken(unrecognized.to_string())
-                }
+                c if c.is_numeric() => self.read_integer(c),
+                c if c.is_alphabetic() => self.read_literal(c),
+                unrecognized => TokenKind::BadToken(unrecognized.to_string()),
             },
         };
+
+        if let TokenKind::BadToken(s) = &kind {
+            let span = TextSpan::new(previous_position, self.current_position);
+            self.diagnostics
+                .report_unrecognized_symbol(s.to_owned(), span);
+        }
+
         SyntaxToken {
             kind,
             span: TextSpan::new(previous_position, self.current_position),
@@ -114,26 +175,55 @@ impl Lexer {
         TokenKind::WhiteSpace(whitespace)
     }
 
-    fn read_integer(&mut self, first_integer_char: char, start_position: usize) -> TokenKind {
-        let mut integer_string = first_integer_char.to_string();
+    fn read_integer(&mut self, first_integer_char: char) -> TokenKind {
+        let integer_string = self.match_continuous(first_integer_char, |c| c.is_numeric());
+
+        let integer = integer_string.parse();
+        match integer {
+            Ok(i) => TokenKind::Integer(i),
+            Err(_) => TokenKind::BadToken(integer_string),
+        }
+    }
+
+    fn read_literal(&mut self, first_char: char) -> TokenKind {
+        let literal_string = self.match_continuous(first_char, |c| c.is_alphanumeric() || c == '_');
+
+        match literal_string.as_str() {
+            "true" => TokenKind::Boolean(true),
+            "false" => TokenKind::Boolean(false),
+            _ => TokenKind::Identifier(literal_string),
+        }
+    }
+
+    fn match_continuous<F>(&mut self, first_char: char, test: F) -> String
+    where
+        F: Fn(char) -> bool,
+    {
+        let mut string = first_char.to_string();
 
         while let Some(c) = self.peek() {
-            if c.is_numeric() {
-                integer_string.push(self.next().unwrap());
+            if test(c) {
+                string.push(self.next().unwrap())
             } else {
                 break;
             }
         }
 
-        let integer = integer_string.parse();
-        match integer {
-            Ok(i) => TokenKind::Integer(i),
-            Err(_) => {
-                let span = TextSpan::new(start_position, self.current_position);
-                self.diagnostics
-                    .report_unrecognized_symbol(integer_string.to_owned(), span);
-                TokenKind::BadToken(integer_string)
+        string
+    }
+
+    fn match_potential_double(
+        &mut self,
+        extra_match: char,
+        double_symbol: TokenKind,
+        single_symbol: TokenKind,
+    ) -> TokenKind {
+        match self.peek() {
+            Some(c) if c == extra_match => {
+                self.next();
+                double_symbol
             }
+            _ => single_symbol,
         }
     }
 }

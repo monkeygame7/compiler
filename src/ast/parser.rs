@@ -1,6 +1,9 @@
 use crate::diagnostics::DiagnosticBag;
 
-use super::{lexer::{SyntaxToken, Lexer, TokenKind}, Ast, AstNode, UnaryOperatorKind, AstNodeKind, BinaryOperatorKind};
+use super::{
+    lexer::{Lexer, SyntaxToken, TokenKind},
+    Ast, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind,
+};
 
 pub struct Parser {
     tokens: Vec<SyntaxToken>,
@@ -74,8 +77,9 @@ impl Parser {
 
     fn parse_unary_expression(&mut self, priority: usize) -> Option<AstNode> {
         let operator = match self.current().kind {
-            TokenKind::PlusToken => UnaryOperatorKind::Identity,
-            TokenKind::DashToken => UnaryOperatorKind::Negate,
+            TokenKind::Plus => UnaryOperatorKind::Identity,
+            TokenKind::Dash => UnaryOperatorKind::Negate,
+            TokenKind::Bang => UnaryOperatorKind::LogicalNot,
             _ => return None,
         };
         let next_token = self.next();
@@ -100,10 +104,20 @@ impl Parser {
 
         loop {
             let operator_token = match self.current().kind {
-                TokenKind::PlusToken => BinaryOperatorKind::Add,
-                TokenKind::DashToken => BinaryOperatorKind::Subtract,
-                TokenKind::StarToken => BinaryOperatorKind::Mulitply,
-                TokenKind::SlashToken => BinaryOperatorKind::Divide,
+                TokenKind::Plus => BinaryOperatorKind::Add,
+                TokenKind::Dash => BinaryOperatorKind::Subtract,
+                TokenKind::Star => BinaryOperatorKind::Mulitply,
+                TokenKind::Slash => BinaryOperatorKind::Divide,
+                TokenKind::AmpersandAmpersand => BinaryOperatorKind::LogicalAnd,
+                TokenKind::Ampersand => BinaryOperatorKind::BitwiseAnd,
+                TokenKind::PipePipe => BinaryOperatorKind::LogicalOr,
+                TokenKind::Pipe => BinaryOperatorKind::BitwiseOr,
+                TokenKind::EqualsEquals => BinaryOperatorKind::Equals,
+                TokenKind::BangEquals => BinaryOperatorKind::NotEquals,
+                TokenKind::LeftAngleEquals => BinaryOperatorKind::LessThanOrEquals,
+                TokenKind::LeftAngleBracket => BinaryOperatorKind::LessThan,
+                TokenKind::RightAngleEquals => BinaryOperatorKind::GreaterThanOrEquals,
+                TokenKind::RightAngleBracket => BinaryOperatorKind::GreaterThan,
                 _ => break,
             };
             let operator_priority = binary_operator_priority(self.current());
@@ -128,15 +142,25 @@ impl Parser {
     }
 
     fn parse_primary_expression(&mut self) -> AstNode {
-        match self.current().kind {
-            TokenKind::Integer(i) => self.parse_integer_expression(i),
-            TokenKind::LeftParenthesisToken => self.parse_group_expression(),
+        let next_token = self.next();
+        let span = next_token.span;
+        match next_token.kind {
+            TokenKind::Integer(i) => AstNode {
+                kind: AstNodeKind::IntegerLiteral(i),
+                span,
+            },
+            TokenKind::Boolean(b) => AstNode {
+                kind: AstNodeKind::BooleanLiteral(b),
+                span,
+            },
+            TokenKind::Identifier(s) => AstNode {
+                kind: AstNodeKind::Identifier(s),
+                span,
+            },
+            TokenKind::LeftParenthesis => self.parse_group_expression(next_token),
             _ => {
-                let start_span = self.current().span;
-                let bad_token = self.next();
-                let span = start_span.to(bad_token.span);
                 self.diagnostics
-                    .report_unexpected_token(bad_token, "<primary expression>");
+                    .report_unexpected_token(next_token, "<primary expression>");
                 AstNode {
                     kind: AstNodeKind::BadNode,
                     span,
@@ -145,45 +169,45 @@ impl Parser {
         }
     }
 
-    fn parse_group_expression(&mut self) -> AstNode {
-        let open = self.next();
+    fn parse_group_expression(&mut self, open: SyntaxToken) -> AstNode {
         let expression = self.parse_expression(0);
         let close = self.next();
         let span = open.span.to(close.span);
         match close.kind {
-            TokenKind::RightParenthesisToken => expression,
+            TokenKind::RightParenthesis => expression,
             _ => {
                 self.diagnostics
-                    .report_unexpected_token(close, TokenKind::RightParenthesisToken);
+                    .report_unexpected_token(close, TokenKind::RightParenthesis);
                 AstNode {
                     kind: AstNodeKind::BadNode,
                     span,
                 }
             }
-        }
-    }
-
-    fn parse_integer_expression(&mut self, value: i32) -> AstNode {
-        let token = self.next();
-        let span = token.span;
-        AstNode {
-            kind: AstNodeKind::IntegerLiteral(value),
-            span,
         }
     }
 }
 
 fn unary_operator_priority(token: &SyntaxToken) -> usize {
     match token.kind {
-        TokenKind::PlusToken | TokenKind::DashToken => 3,
+        TokenKind::Plus | TokenKind::Dash | TokenKind::Bang => 13,
         _ => 0,
     }
 }
 
 fn binary_operator_priority(token: &SyntaxToken) -> usize {
     match token.kind {
-        TokenKind::StarToken | TokenKind::SlashToken => 2,
-        TokenKind::PlusToken | TokenKind::DashToken => 1,
+        TokenKind::Star | TokenKind::Slash => 12,
+        TokenKind::Plus | TokenKind::Dash => 11,
+        TokenKind::RightAngleEquals
+        | TokenKind::RightAngleBracket
+        | TokenKind::LeftAngleBracket
+        | TokenKind::LeftAngleEquals
+        | TokenKind::EqualsEquals
+        | TokenKind::BangEquals => 8,
+        TokenKind::Ampersand => 7,
+        TokenKind::Pipe => 5,
+        TokenKind::AmpersandAmpersand => 4,
+        TokenKind::PipePipe => 3,
         _ => 0,
     }
 }

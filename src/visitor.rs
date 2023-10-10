@@ -2,12 +2,13 @@ use std::fmt::Display;
 
 use crate::ast::{AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind};
 
-
 impl AstNode {
     pub fn visit(&self, visitor: &mut impl AstVisitor) {
         match &self.kind {
             AstNodeKind::BadNode => visitor.visit_bad_node(),
-            AstNodeKind::IntegerLiteral(value) => visitor.visit_integer(*value),
+            AstNodeKind::IntegerLiteral(i) => visitor.visit_integer(*i),
+            AstNodeKind::BooleanLiteral(b) => visitor.visit_boolean(*b),
+            AstNodeKind::Identifier(s) => visitor.visit_identifier(s),
             AstNodeKind::BinaryExpression(left, op, right) => {
                 left.visit(visitor);
                 right.visit(visitor);
@@ -23,6 +24,8 @@ impl AstNode {
 
 pub trait AstVisitor {
     fn visit_integer(&mut self, value: i32);
+    fn visit_boolean(&mut self, value: bool);
+    fn visit_identifier(&mut self, value: &String);
     fn visit_binary_expression(&mut self, op: &BinaryOperatorKind);
     fn visit_unary_expression(&mut self, op: &UnaryOperatorKind);
     fn visit_bad_node(&mut self);
@@ -54,6 +57,10 @@ fn display_helper(
         AstNodeKind::IntegerLiteral(i) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, i))
         }
+        AstNodeKind::BooleanLiteral(b) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, b))
+        }
+        AstNodeKind::Identifier(s) => f.write_fmt(format_args!("{}{} {}\n", padding, marker, s)),
         AstNodeKind::BinaryExpression(l, op, r) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, op))?;
             display_helper(&l, f, &child_padding, false)?;
@@ -73,6 +80,16 @@ impl Display for BinaryOperatorKind {
             BinaryOperatorKind::Subtract => "-",
             BinaryOperatorKind::Mulitply => "*",
             BinaryOperatorKind::Divide => "/",
+            BinaryOperatorKind::LogicalAnd => "&&",
+            BinaryOperatorKind::LogicalOr => "||",
+            BinaryOperatorKind::BitwiseAnd => "&",
+            BinaryOperatorKind::BitwiseOr => "|",
+            BinaryOperatorKind::Equals => "==",
+            BinaryOperatorKind::NotEquals => "!=",
+            BinaryOperatorKind::LessThan => "<",
+            BinaryOperatorKind::LessThanOrEquals => "<=",
+            BinaryOperatorKind::GreaterThan => ">",
+            BinaryOperatorKind::GreaterThanOrEquals => ">=",
         };
         f.write_str(s)
     }
@@ -83,6 +100,7 @@ impl Display for UnaryOperatorKind {
         let s = match self {
             UnaryOperatorKind::Identity => "+",
             UnaryOperatorKind::Negate => "-",
+            UnaryOperatorKind::LogicalNot => "!",
         };
         f.write_str(s)
     }

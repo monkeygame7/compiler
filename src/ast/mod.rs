@@ -11,8 +11,10 @@ pub struct Ast {
 pub enum AstNodeKind {
     BadNode,
     IntegerLiteral(i32),
+    BooleanLiteral(bool),
     BinaryExpression(Box<AstNode>, BinaryOperatorKind, Box<AstNode>),
     UnaryExpression(UnaryOperatorKind, Box<AstNode>),
+    Identifier(String),
 }
 
 pub struct AstNode {
@@ -25,10 +27,20 @@ pub enum BinaryOperatorKind {
     Subtract,
     Mulitply,
     Divide,
+    LogicalAnd,
+    LogicalOr,
+    BitwiseAnd,
+    BitwiseOr,
+    Equals,
+    NotEquals,
+    LessThan,
+    LessThanOrEquals,
+    GreaterThan,
+    GreaterThanOrEquals,
 }
 
 pub enum UnaryOperatorKind {
     Identity,
     Negate,
+    LogicalNot,
 }
-
