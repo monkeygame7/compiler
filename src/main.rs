@@ -6,6 +6,7 @@ use crate::{ast::parser::Parser, evaluator::Evaluator};
 mod ast;
 mod diagnostics;
 mod evaluator;
+mod text;
 
 fn main() -> io::Result<()> {
     let mut show_tree = false;

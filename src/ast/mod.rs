@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::diagnostics::{DiagnosticBag, TextSpan};
+use crate::{diagnostics::DiagnosticBag, text::TextSpan};
 
 pub mod lexer;
 pub mod parser;

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::diagnostics::TextSpan;
+use crate::text::TextSpan;
 
 pub struct Lexer {
     chars: Vec<char>,

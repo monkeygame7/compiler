@@ -3,23 +3,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::ast::lexer::SyntaxToken;
-
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
-pub struct TextSpan {
-    pub start: usize,
-    pub end: usize,
-}
-
-impl TextSpan {
-    pub fn new(start: usize, end: usize) -> Self {
-        TextSpan { start, end }
-    }
-
-    pub fn to(self, other: TextSpan) -> Self {
-        TextSpan::new(self.start, other.end)
-    }
-}
+use crate::{ast::lexer::SyntaxToken, text::TextSpan};
 
 pub struct DiagnosticMessage {
     pub message: String,

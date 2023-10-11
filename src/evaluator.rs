@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     ast::{Ast, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
-    diagnostics::{DiagnosticBag, TextSpan},
+    diagnostics::DiagnosticBag, text::TextSpan,
 };
 
 pub struct Evaluator {
