@@ -17,6 +17,7 @@ pub enum AstNodeKind {
     BinaryExpression(Box<AstNode>, BinaryOperator, Box<AstNode>),
     UnaryExpression(UnaryOperator, Box<AstNode>),
     Identifier(String),
+    Scope(Box<AstNode>),
 }
 
 pub struct AstNode {

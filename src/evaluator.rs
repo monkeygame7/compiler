@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+};
 
 use crate::{
     ast::{Ast, BinaryOperatorKind, UnaryOperatorKind},
@@ -10,7 +13,7 @@ pub struct Evaluator {
     root: Ast,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum ResultType {
     IntegerResult(i32),
     BooleanResult(bool),
@@ -64,6 +67,7 @@ impl Evaluator {
 
 struct EvaluatingVisitor {
     stack: Vec<ResultType>,
+    scopes: Vec<HashMap<String, ResultType>>,
     pub diagnostics: DiagnosticBag,
 }
 
@@ -71,6 +75,7 @@ impl EvaluatingVisitor {
     fn new(diagnostics: DiagnosticBag) -> Self {
         Self {
             stack: vec![],
+            scopes: vec![],
             diagnostics,
         }
     }
@@ -85,8 +90,19 @@ impl AstVisitor for EvaluatingVisitor {
         self.stack.push(BooleanResult(value))
     }
 
-    fn visit_identifier(&mut self, value: &String, span: &TextSpan) {
-        todo!("visit identifier")
+    fn visit_identifier(&mut self, identifier: &String, span: &TextSpan) {
+        let value = self
+            .scopes
+            .last()
+            .map(|scope| scope.get(identifier))
+            .flatten();
+
+        match value {
+            Some(result) => self.stack.push(result.clone()),
+            None => self
+                .diagnostics
+                .report_identifier_not_found(identifier, *span),
+        }
     }
 
     fn visit_binary_expression(&mut self, op: &BinaryOperatorKind, span: &TextSpan) {
@@ -151,6 +167,17 @@ impl AstVisitor for EvaluatingVisitor {
                 .report_unsupported_unary_operator(op, expr_result, *span);
         } else {
             self.stack.push(result)
+        }
+    }
+
+    fn visit_scope_enter(&mut self) {
+        self.scopes.push(HashMap::new())
+    }
+
+    fn visit_scope_exit(&mut self) {
+        let scope = self.scopes.pop();
+        if matches!(scope, None) {
+            panic!("wtf how?");
         }
     }
 

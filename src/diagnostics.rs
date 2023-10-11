@@ -112,6 +112,13 @@ impl DiagnosticBag {
     pub fn report_bad_expression(&self, span: TextSpan) {
         self.add_message("Not a valid expression".to_string(), span);
     }
+
+    pub fn report_identifier_not_found(&self, identifier: &str, span: TextSpan) {
+        self.add_message(
+            format!("'{}' is not defined in this scope", identifier),
+            span,
+        );
+    }
 }
 
 impl IntoIterator for DiagnosticBag {

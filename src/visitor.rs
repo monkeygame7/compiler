@@ -22,6 +22,11 @@ impl AstNode {
                 expr.visit(visitor);
                 visitor.visit_unary_expression(&op.kind, &op.span)
             }
+            AstNodeKind::Scope(expr) => {
+                visitor.visit_scope_enter();
+                expr.visit(visitor);
+                visitor.visit_scope_exit();
+            }
         }
     }
 }
@@ -29,9 +34,11 @@ impl AstNode {
 pub trait AstVisitor {
     fn visit_integer(&mut self, value: i32, span: &TextSpan);
     fn visit_boolean(&mut self, value: bool, span: &TextSpan);
-    fn visit_identifier(&mut self, value: &String, span: &TextSpan);
+    fn visit_identifier(&mut self, identifier: &String, span: &TextSpan);
     fn visit_binary_expression(&mut self, op: &BinaryOperatorKind, span: &TextSpan);
     fn visit_unary_expression(&mut self, op: &UnaryOperatorKind, span: &TextSpan);
+    fn visit_scope_enter(&mut self);
+    fn visit_scope_exit(&mut self);
     fn visit_bad_node(&mut self, span: &TextSpan);
 }
 
@@ -72,6 +79,10 @@ fn display_helper(
         }
         AstNodeKind::UnaryExpression(op, expr) => {
             f.write_fmt(format_args!("{}{} {}\n", padding, marker, op.kind))?;
+            display_helper(expr, f, &child_padding, true)
+        }
+        AstNodeKind::Scope(expr) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "{}"))?;
             display_helper(expr, f, &child_padding, true)
         }
     }

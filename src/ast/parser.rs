@@ -73,7 +73,14 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, priority: usize) -> AstNode {
-        self.parse_binary_expression(priority)
+        let current = self.current();
+        match current.kind {
+            TokenKind::LeftCurly => {
+                let curly = self.next();
+                self.parse_scope(curly)
+            }
+            _ => self.parse_binary_expression(priority),
+        }
     }
 
     fn parse_unary_expression(&mut self, priority: usize) -> Option<AstNode> {
@@ -189,6 +196,23 @@ impl Parser {
             }
         }
     }
+
+    fn parse_scope(&mut self, open: SyntaxToken) -> AstNode {
+        let expression = self.parse_expression(0);
+        let close = self.next();
+        let span = open.span.to(close.span);
+        match close.kind {
+            TokenKind::RightCurly => expression,
+            _ => {
+                self.diagnostics
+                    .report_unexpected_token(close, TokenKind::RightCurly);
+                AstNode {
+                    kind: AstNodeKind::BadNode,
+                    span,
+                }
+            }
+        }
+    }
 }
 
 fn unary_operator_priority(token: &SyntaxToken) -> usize {
@@ -230,6 +254,7 @@ mod test {
         Ident(String),
         Binary(BinaryOperatorKind),
         Unary(UnaryOperatorKind),
+        Scope,
     }
 
     impl Display for Matcher {
@@ -245,7 +270,8 @@ mod test {
     }
 
     struct AssertingIterator {
-        pub nodes: Vec<Matcher>,
+        text: String,
+        nodes: Vec<Matcher>,
         current: usize,
     }
 
@@ -253,9 +279,10 @@ mod test {
         fn new(text: String) -> Self {
             let mut nodes = vec![];
             let mut stack = vec![];
-            let ast = Parser::parse(text);
+            let ast = Parser::parse(text.to_string());
 
-            assert_eq!(ast.diagnostics.into_iter().collect::<Vec<_>>().len(), 0);
+            let errors: Vec<_> = ast.diagnostics.into_iter().map(|dm| dm.message).collect();
+            assert_eq!(errors.len(), 0, "Had errors parsing: {:?}", errors);
 
             stack.push(ast.root);
 
@@ -265,6 +292,10 @@ mod test {
                     AstNodeKind::IntegerLiteral(i) => Matcher::Int(i),
                     AstNodeKind::BooleanLiteral(b) => Matcher::Bool(b),
                     AstNodeKind::Identifier(s) => Matcher::Ident(s),
+                    AstNodeKind::Scope(expr) => {
+                        stack.push(*expr);
+                        Matcher::Scope
+                    }
                     AstNodeKind::BinaryExpression(l, op, r) => {
                         stack.push(*r);
                         stack.push(*l);
@@ -278,7 +309,11 @@ mod test {
                 nodes.push(matcher);
             }
 
-            AssertingIterator { nodes, current: 0 }
+            AssertingIterator {
+                text,
+                nodes,
+                current: 0,
+            }
         }
 
         fn assert(&mut self, matcher: Matcher) {
@@ -287,7 +322,11 @@ mod test {
                 "Unable to match {:?}, ran out of tokens",
                 matcher
             );
-            assert_eq!(self.nodes[self.current], matcher);
+            assert_eq!(
+                self.nodes[self.current], matcher,
+                "'{}'\n{:?}",
+                self.text, self.nodes
+            );
             self.current += 1;
         }
 
@@ -346,6 +385,19 @@ mod test {
                         asserter.finish();
                     })
             })
+    }
+
+    #[test]
+    fn test_scope() {
+        let text = "{1 + 2} - 4".to_string();
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Subtract));
+        asserter.assert(Matcher::Scope);
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
+        asserter.assert(Matcher::Int(1));
+        asserter.assert(Matcher::Int(2));
+        asserter.assert(Matcher::Int(4));
     }
 
     #[test]

@@ -42,34 +42,38 @@ pub enum TokenKind {
     //organizational
     LeftParenthesis,
     RightParenthesis,
+    LeftCurly,
+    RightCurly,
 }
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            TokenKind::EOF => "<EOF>".to_owned(),
-            TokenKind::BadToken(s) => s.to_owned(),
-            TokenKind::WhiteSpace(s) => s.to_owned(),
-            TokenKind::Integer(i) => i.to_string(),
-            TokenKind::Boolean(b) => b.to_string(),
-            TokenKind::Identifier(s) => s.to_owned(),
-            TokenKind::Plus => "+".to_owned(),
-            TokenKind::Dash => "-".to_owned(),
-            TokenKind::Star => "*".to_owned(),
-            TokenKind::Slash => "/".to_owned(),
-            TokenKind::Ampersand => "&".to_owned(),
-            TokenKind::AmpersandAmpersand => "&&".to_owned(),
-            TokenKind::Pipe => "|".to_owned(),
-            TokenKind::PipePipe => "||".to_owned(),
-            TokenKind::Bang => "!".to_owned(),
-            TokenKind::EqualsEquals => "==".to_owned(),
-            TokenKind::BangEquals => "!=".to_owned(),
-            TokenKind::LeftAngleBracket => "<".to_owned(),
-            TokenKind::RightAngleBracket => ">".to_owned(),
-            TokenKind::LeftAngleEquals => "<=".to_owned(),
-            TokenKind::RightAngleEquals => ">=".to_owned(),
-            TokenKind::LeftParenthesis => "(".to_owned(),
-            TokenKind::RightParenthesis => ")".to_owned(),
+            Self::EOF => "<EOF>".to_owned(),
+            Self::BadToken(s) => s.to_owned(),
+            Self::WhiteSpace(s) => s.to_owned(),
+            Self::Integer(i) => i.to_string(),
+            Self::Boolean(b) => b.to_string(),
+            Self::Identifier(s) => s.to_owned(),
+            Self::Plus => "+".to_owned(),
+            Self::Dash => "-".to_owned(),
+            Self::Star => "*".to_owned(),
+            Self::Slash => "/".to_owned(),
+            Self::Ampersand => "&".to_owned(),
+            Self::AmpersandAmpersand => "&&".to_owned(),
+            Self::Pipe => "|".to_owned(),
+            Self::PipePipe => "||".to_owned(),
+            Self::Bang => "!".to_owned(),
+            Self::EqualsEquals => "==".to_owned(),
+            Self::BangEquals => "!=".to_owned(),
+            Self::LeftAngleBracket => "<".to_owned(),
+            Self::RightAngleBracket => ">".to_owned(),
+            Self::LeftAngleEquals => "<=".to_owned(),
+            Self::RightAngleEquals => ">=".to_owned(),
+            Self::LeftParenthesis => "(".to_owned(),
+            Self::RightParenthesis => ")".to_owned(),
+            Self::LeftCurly => "{".to_owned(),
+            Self::RightCurly => "}".to_owned(),
         };
         f.write_str(&s)
     }
@@ -119,6 +123,8 @@ impl Lexer {
                 '/' => TokenKind::Slash,
                 '(' => TokenKind::LeftParenthesis,
                 ')' => TokenKind::RightParenthesis,
+                '{' => TokenKind::LeftCurly,
+                '}' => TokenKind::RightCurly,
                 '&' => self.match_potential_double(
                     '&',
                     TokenKind::AmpersandAmpersand,
@@ -392,10 +398,14 @@ mod test {
             (">=".to_string(), RightAngleEquals),
             ("(".to_string(), LeftParenthesis),
             (")".to_string(), RightParenthesis),
+            ("{".to_string(), LeftCurly),
+            ("}".to_string(), RightCurly),
             ("1".to_string(), Integer(1)),
             ("123".to_string(), Integer(123)),
             ("true".to_string(), Boolean(true)),
             ("false".to_string(), Boolean(false)),
+            ("a".to_string(), Identifier("a".to_string())),
+            ("foo_bar".to_string(), Identifier("foo_bar".to_string())),
         ]
         .into_iter()
         .collect()
@@ -429,15 +439,22 @@ mod test {
 
     fn requires_separator(t1_kind: &TokenKind, t2_kind: &TokenKind) -> bool {
         match (t1_kind, t2_kind) {
-            (&Ampersand, &Ampersand) => true,
-            (&Ampersand, &AmpersandAmpersand) => true,
-            (&Pipe, &Pipe) => true,
-            (&Pipe, &PipePipe) => true,
-            (&Bang, &EqualsEquals) => true,
-            (&LeftAngleBracket, &EqualsEquals) => true,
-            (&RightAngleBracket, &EqualsEquals) => true,
+            (&Integer(_), &Integer(_))
+            | (&Boolean(_), &Integer(_))
+            | (&Boolean(_), &Identifier(_))
+            | (&Boolean(_), &Boolean(_))
+            | (&Identifier(_), &Boolean(_))
+            | (&Identifier(_), &Integer(_))
+            | (&Identifier(_), &Identifier(_))
+            | (&Ampersand, &Ampersand)
+            | (&Ampersand, &AmpersandAmpersand)
+            | (&Pipe, &Pipe)
+            | (&Pipe, &PipePipe)
+            | (&Bang, &EqualsEquals)
+            | (&LeftAngleBracket, &EqualsEquals)
+            | (&RightAngleBracket, &EqualsEquals) => true,
 
-            _ => true,
+            _ => false,
         }
     }
 }
