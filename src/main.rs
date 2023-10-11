@@ -6,7 +6,6 @@ use crate::{ast::parser::Parser, evaluator::Evaluator};
 mod ast;
 mod diagnostics;
 mod evaluator;
-mod visitor;
 
 fn main() -> io::Result<()> {
     let mut show_tree = true;
@@ -16,7 +15,7 @@ fn main() -> io::Result<()> {
         io::stdout().flush()?;
         io::stdin().read_line(&mut buffer)?;
 
-        if buffer.trim().is_empty() || buffer.trim() == "exit" {
+        if buffer.trim() == "#exit" {
             break;
         } else if buffer.trim() == "#tree" {
             show_tree = !show_tree;

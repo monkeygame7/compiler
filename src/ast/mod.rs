@@ -14,14 +14,14 @@ pub enum AstNodeKind {
     BadNode,
     IntegerLiteral(i32),
     BooleanLiteral(bool),
-    BinaryExpression(Box<AstNode>, BinaryOperator, Box<AstNode>),
-    UnaryExpression(UnaryOperator, Box<AstNode>),
+    BinaryExpression(AstNode, BinaryOperator, AstNode),
+    UnaryExpression(UnaryOperator, AstNode),
     Identifier(String),
-    Scope(Box<AstNode>),
+    Scope(AstNode),
 }
 
 pub struct AstNode {
-    pub kind: AstNodeKind,
+    pub kind: Box<AstNodeKind>,
     pub span: TextSpan,
 }
 
@@ -90,5 +90,51 @@ impl Display for UnaryOperatorKind {
             UnaryOperatorKind::LogicalNot => "!",
         };
         f.write_str(s)
+    }
+}
+
+impl Display for AstNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        display_helper(self, f, "", true)
+    }
+}
+
+fn display_helper(
+    node: &AstNode,
+    f: &mut std::fmt::Formatter<'_>,
+    padding: &str,
+    is_last: bool,
+) -> std::fmt::Result {
+    let last_marker = " └──";
+    let middle_marker = " ├──";
+    let marker = if is_last { last_marker } else { middle_marker };
+    let child_padding = if is_last {
+        padding.to_owned() + "    "
+    } else {
+        padding.to_owned() + " │  "
+    };
+
+    match node.kind.as_ref() {
+        AstNodeKind::BadNode => f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR")),
+        AstNodeKind::IntegerLiteral(i) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, i))
+        }
+        AstNodeKind::BooleanLiteral(b) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, b))
+        }
+        AstNodeKind::Identifier(s) => f.write_fmt(format_args!("{}{} {}\n", padding, marker, s)),
+        AstNodeKind::BinaryExpression(l, op, r) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op.kind))?;
+            display_helper(&l, f, &child_padding, false)?;
+            display_helper(&r, f, &child_padding, true)
+        }
+        AstNodeKind::UnaryExpression(op, expr) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op.kind))?;
+            display_helper(expr, f, &child_padding, true)
+        }
+        AstNodeKind::Scope(expr) => {
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "{}"))?;
+            display_helper(expr, f, &child_padding, true)
+        }
     }
 }

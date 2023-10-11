@@ -104,7 +104,7 @@ impl Parser {
         let expression = self.parse_expression(operator_prioirty);
         let span = operator_token.span.to(expression.span);
         Some(AstNode {
-            kind: AstNodeKind::UnaryExpression(operator, Box::new(expression)),
+            kind: Box::new(AstNodeKind::UnaryExpression(operator, expression)),
             span,
         })
     }
@@ -144,7 +144,7 @@ impl Parser {
             let right = self.parse_expression(operator_priority);
             let span = left.span.to(right.span);
             left = AstNode {
-                kind: AstNodeKind::BinaryExpression(Box::new(left), operator, Box::new(right)),
+                kind: Box::new(AstNodeKind::BinaryExpression(left, operator, right)),
                 span,
             }
         }
@@ -157,15 +157,15 @@ impl Parser {
         let span = next_token.span;
         match next_token.kind {
             TokenKind::Integer(i) => AstNode {
-                kind: AstNodeKind::IntegerLiteral(i),
+                kind: Box::new(AstNodeKind::IntegerLiteral(i)),
                 span,
             },
             TokenKind::Boolean(b) => AstNode {
-                kind: AstNodeKind::BooleanLiteral(b),
+                kind: Box::new(AstNodeKind::BooleanLiteral(b)),
                 span,
             },
             TokenKind::Identifier(s) => AstNode {
-                kind: AstNodeKind::Identifier(s),
+                kind: Box::new(AstNodeKind::Identifier(s)),
                 span,
             },
             TokenKind::LeftParenthesis => self.parse_group_expression(next_token),
@@ -173,7 +173,7 @@ impl Parser {
                 self.diagnostics
                     .report_unexpected_token(next_token, "<primary expression>");
                 AstNode {
-                    kind: AstNodeKind::BadNode,
+                    kind: Box::new(AstNodeKind::BadNode),
                     span,
                 }
             }
@@ -190,7 +190,7 @@ impl Parser {
                 self.diagnostics
                     .report_unexpected_token(close, TokenKind::RightParenthesis);
                 AstNode {
-                    kind: AstNodeKind::BadNode,
+                    kind: Box::new(AstNodeKind::BadNode),
                     span,
                 }
             }
@@ -202,12 +202,15 @@ impl Parser {
         let close = self.next();
         let span = open.span.to(close.span);
         match close.kind {
-            TokenKind::RightCurly => expression,
+            TokenKind::RightCurly => AstNode {
+                kind: Box::new(AstNodeKind::Scope(expression)),
+                span,
+            },
             _ => {
                 self.diagnostics
                     .report_unexpected_token(close, TokenKind::RightCurly);
                 AstNode {
-                    kind: AstNodeKind::BadNode,
+                    kind: Box::new(AstNodeKind::BadNode),
                     span,
                 }
             }
@@ -287,22 +290,22 @@ mod test {
             stack.push(ast.root);
 
             while let Some(next) = stack.pop() {
-                let matcher = match next.kind {
+                let matcher = match *next.kind {
                     AstNodeKind::BadNode => Matcher::Bad,
                     AstNodeKind::IntegerLiteral(i) => Matcher::Int(i),
                     AstNodeKind::BooleanLiteral(b) => Matcher::Bool(b),
                     AstNodeKind::Identifier(s) => Matcher::Ident(s),
                     AstNodeKind::Scope(expr) => {
-                        stack.push(*expr);
+                        stack.push(expr);
                         Matcher::Scope
                     }
                     AstNodeKind::BinaryExpression(l, op, r) => {
-                        stack.push(*r);
-                        stack.push(*l);
+                        stack.push(r);
+                        stack.push(l);
                         Matcher::Binary(op.kind)
                     }
                     AstNodeKind::UnaryExpression(op, expr) => {
-                        stack.push(*expr);
+                        stack.push(expr);
                         Matcher::Unary(op.kind)
                     }
                 };

@@ -4,29 +4,32 @@ use std::{
 };
 
 use crate::{
-    ast::{Ast, BinaryOperatorKind, UnaryOperatorKind},
+    ast::{Ast, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
     diagnostics::{DiagnosticBag, TextSpan},
-    visitor::AstVisitor,
 };
 
 pub struct Evaluator {
-    root: Ast,
+    root: AstNode,
+    scopes: Vec<HashMap<String, ResultType>>,
+    diagnostics: DiagnosticBag,
 }
 
 #[derive(PartialEq, Eq, Clone)]
 pub enum ResultType {
-    IntegerResult(i32),
-    BooleanResult(bool),
-    VoidResult,
+    Integer(i32),
+    Boolean(bool),
+    Void,
+    Undefined,
 }
 use ResultType::*;
 
 impl Display for ResultType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            IntegerResult(i) => i.to_string(),
-            BooleanResult(b) => b.to_string(),
-            VoidResult => "(void)".to_string(),
+            Integer(i) => i.to_string(),
+            Boolean(b) => b.to_string(),
+            Void => "(void)".to_string(),
+            Undefined => "UNDEFINED".to_string(),
         };
 
         f.write_str(&s)
@@ -36,9 +39,10 @@ impl Display for ResultType {
 impl Debug for ResultType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            IntegerResult(_) => "<int>",
-            BooleanResult(_) => "<bool>",
-            VoidResult => "<void>",
+            Integer(_) => "<int>",
+            Boolean(_) => "<bool>",
+            Void => "<void>",
+            Undefined => "<undefined>",
         };
 
         f.write_str(s)
@@ -47,50 +51,63 @@ impl Debug for ResultType {
 
 impl Evaluator {
     pub fn new(program: Ast) -> Evaluator {
-        Evaluator { root: program }
+        Evaluator {
+            root: program.root,
+            scopes: vec![],
+            diagnostics: program.diagnostics,
+        }
     }
 
-    pub fn evaluate(self) -> Result<ResultType, DiagnosticBag> {
-        let mut visitor = EvaluatingVisitor::new(self.root.diagnostics);
+    pub fn evaluate(mut self) -> Result<ResultType, DiagnosticBag> {
+        let node = self.root;
+        // lol...
+        self.root = AstNode {
+            kind: Box::new(AstNodeKind::BadNode),
+            span: TextSpan::new(0, 0),
+        };
+        let result = self.evaluate_node(node);
 
-        self.root.root.visit(&mut visitor);
-
-        let result = visitor.stack.pop().unwrap_or(VoidResult);
-
-        if visitor.diagnostics.has_errors() {
-            Err(visitor.diagnostics)
+        if self.diagnostics.has_errors() {
+            Err(self.diagnostics)
         } else {
             Ok(result)
         }
     }
-}
 
-struct EvaluatingVisitor {
-    stack: Vec<ResultType>,
-    scopes: Vec<HashMap<String, ResultType>>,
-    pub diagnostics: DiagnosticBag,
-}
-
-impl EvaluatingVisitor {
-    fn new(diagnostics: DiagnosticBag) -> Self {
-        Self {
-            stack: vec![],
-            scopes: vec![],
-            diagnostics,
+    pub fn evaluate_node(&mut self, node: AstNode) -> ResultType {
+        let span = node.span;
+        match *node.kind {
+            AstNodeKind::BadNode => self.evaluate_bad_node(span),
+            AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(i, span),
+            AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(b, span),
+            AstNodeKind::Identifier(s) => self.evaluate_identifier(&s, span),
+            AstNodeKind::BinaryExpression(left, op, right) => {
+                let left = self.evaluate_node(left);
+                let right = self.evaluate_node(right);
+                self.evaluate_binary_expression(left, op.kind, right, op.span)
+            }
+            AstNodeKind::UnaryExpression(op, expr) => {
+                let result = self.evaluate_node(expr);
+                self.evaluate_unary_expression(op.kind, result, op.span)
+            }
+            AstNodeKind::Scope(expr) => {
+                self.scopes.push(HashMap::new());
+                let result = self.evaluate_node(expr);
+                self.scopes.pop();
+                result
+            }
         }
     }
-}
 
-impl AstVisitor for EvaluatingVisitor {
-    fn visit_integer(&mut self, value: i32, span: &TextSpan) {
-        self.stack.push(IntegerResult(value))
+    fn evaluate_integer(&mut self, value: i32, span: TextSpan) -> ResultType {
+        Integer(value)
     }
 
-    fn visit_boolean(&mut self, value: bool, span: &TextSpan) {
-        self.stack.push(BooleanResult(value))
+    fn evaluate_boolean(&mut self, value: bool, span: TextSpan) -> ResultType {
+        Boolean(value)
     }
 
-    fn visit_identifier(&mut self, identifier: &String, span: &TextSpan) {
+    fn evaluate_identifier(&mut self, identifier: &String, span: TextSpan) -> ResultType {
         let value = self
             .scopes
             .last()
@@ -98,90 +115,85 @@ impl AstVisitor for EvaluatingVisitor {
             .flatten();
 
         match value {
-            Some(result) => self.stack.push(result.clone()),
-            None => self
-                .diagnostics
-                .report_identifier_not_found(identifier, *span),
+            Some(result) => result.clone(),
+            None => {
+                self.diagnostics
+                    .report_identifier_not_found(identifier, span);
+                Undefined
+            }
         }
     }
 
-    fn visit_binary_expression(&mut self, op: &BinaryOperatorKind, span: &TextSpan) {
-        let right_result = self.stack.pop().unwrap_or(VoidResult);
-        let left_result = self.stack.pop().unwrap_or(VoidResult);
-
+    fn evaluate_binary_expression(
+        &mut self,
+        left_result: ResultType,
+        op: BinaryOperatorKind,
+        right_result: ResultType,
+        span: TextSpan,
+    ) -> ResultType {
         let result = match (&left_result, &right_result) {
-            (IntegerResult(l), IntegerResult(r)) => match op {
-                BinaryOperatorKind::Add => IntegerResult(l + r),
-                BinaryOperatorKind::Subtract => IntegerResult(l - r),
-                BinaryOperatorKind::Mulitply => IntegerResult(l * r),
-                BinaryOperatorKind::Divide => IntegerResult(l / r),
-                BinaryOperatorKind::BitwiseAnd => IntegerResult(l & r),
-                BinaryOperatorKind::BitwiseOr => IntegerResult(l | r),
-                BinaryOperatorKind::Equals => BooleanResult(l == r),
-                BinaryOperatorKind::NotEquals => BooleanResult(l != r),
-                BinaryOperatorKind::GreaterThanOrEquals => BooleanResult(l >= r),
-                BinaryOperatorKind::GreaterThan => BooleanResult(l > r),
-                BinaryOperatorKind::LessThanOrEquals => BooleanResult(l <= r),
-                BinaryOperatorKind::LessThan => BooleanResult(l < r),
-                _ => VoidResult,
+            (Integer(l), Integer(r)) => match op {
+                BinaryOperatorKind::Add => Integer(l + r),
+                BinaryOperatorKind::Subtract => Integer(l - r),
+                BinaryOperatorKind::Mulitply => Integer(l * r),
+                BinaryOperatorKind::Divide => Integer(l / r),
+                BinaryOperatorKind::BitwiseAnd => Integer(l & r),
+                BinaryOperatorKind::BitwiseOr => Integer(l | r),
+                BinaryOperatorKind::Equals => Boolean(l == r),
+                BinaryOperatorKind::NotEquals => Boolean(l != r),
+                BinaryOperatorKind::GreaterThanOrEquals => Boolean(l >= r),
+                BinaryOperatorKind::GreaterThan => Boolean(l > r),
+                BinaryOperatorKind::LessThanOrEquals => Boolean(l <= r),
+                BinaryOperatorKind::LessThan => Boolean(l < r),
+                _ => Undefined,
             },
-            (BooleanResult(l), BooleanResult(r)) => match op {
-                BinaryOperatorKind::LogicalAnd => BooleanResult(*l && *r),
-                BinaryOperatorKind::LogicalOr => BooleanResult(*l || *r),
-                BinaryOperatorKind::BitwiseAnd => BooleanResult(l & r),
-                BinaryOperatorKind::BitwiseOr => BooleanResult(l | r),
-                _ => VoidResult,
+            (Boolean(l), Boolean(r)) => match op {
+                BinaryOperatorKind::LogicalAnd => Boolean(*l && *r),
+                BinaryOperatorKind::LogicalOr => Boolean(*l || *r),
+                BinaryOperatorKind::BitwiseAnd => Boolean(l & r),
+                BinaryOperatorKind::BitwiseOr => Boolean(l | r),
+                _ => Undefined,
             },
-            _ => VoidResult,
+            _ => Undefined,
         };
 
-        if matches!(result, VoidResult) {
-            self.diagnostics.report_unsupported_binary_operator(
-                left_result,
-                op,
-                right_result,
-                *span,
-            );
-        } else {
-            self.stack.push(result)
-        }
-    }
-
-    fn visit_unary_expression(&mut self, op: &UnaryOperatorKind, span: &TextSpan) {
-        let expr_result = self.stack.pop().unwrap_or(VoidResult);
-        let result = match expr_result {
-            IntegerResult(i) => match op {
-                UnaryOperatorKind::Identity => IntegerResult(i),
-                UnaryOperatorKind::Negate => IntegerResult(-i),
-                _ => VoidResult,
-            },
-            BooleanResult(b) => match op {
-                UnaryOperatorKind::LogicalNot => BooleanResult(!b),
-                _ => VoidResult,
-            },
-            _ => VoidResult,
-        };
-
-        if matches!(result, VoidResult) {
+        if matches!(result, Undefined) {
             self.diagnostics
-                .report_unsupported_unary_operator(op, expr_result, *span);
-        } else {
-            self.stack.push(result)
+                .report_unsupported_binary_operator(left_result, op, right_result, span)
         }
+        result
     }
 
-    fn visit_scope_enter(&mut self) {
-        self.scopes.push(HashMap::new())
-    }
+    fn evaluate_unary_expression(
+        &mut self,
+        op: UnaryOperatorKind,
+        expr_result: ResultType,
+        span: TextSpan,
+    ) -> ResultType {
+        let result = match expr_result {
+            Integer(i) => match op {
+                UnaryOperatorKind::Identity => Integer(i),
+                UnaryOperatorKind::Negate => Integer(-i),
+                _ => Undefined,
+            },
+            Boolean(b) => match op {
+                UnaryOperatorKind::LogicalNot => Boolean(!b),
+                _ => Undefined,
+            },
+            _ => Undefined,
+        };
 
-    fn visit_scope_exit(&mut self) {
-        let scope = self.scopes.pop();
-        if matches!(scope, None) {
-            panic!("wtf how?");
+        if matches!(result, Undefined) {
+            self.diagnostics
+                .report_unsupported_unary_operator(op, expr_result, span);
         }
+        result
     }
 
-    fn visit_bad_node(&mut self, span: &TextSpan) {}
+    fn evaluate_bad_node(&mut self, span: TextSpan) -> ResultType {
+        self.diagnostics.report_invalid_expression(span);
+        Undefined
+    }
 }
 
 #[cfg(test)]
@@ -319,23 +331,24 @@ mod test {
             ("1 < 2", true),
             ("1 <= 2", true),
         ];
-        let void_cases = vec![
-            "[]",
-            "[$]",
-            "(1 + 2[]",
+        let undefined_cases = vec![
+            "[[]]",
+            "[[$]]",
+            "[(1 + 2[]]",
             "[-]true",
             "13 [@]",
             "4 [&&] 5",
             "true [+] false",
-            "([$] [+] 2) [-] 4",
-            "([$]) [+] 4",
+            "([[$]] [+] 2) [-] 4",
+            "([[$]]) [+] 4",
+            "[foo] [+] [bar]",
         ];
 
         int_cases
             .into_iter()
-            .map(|(s, i)| (s, IntegerResult(i)))
-            .chain(bool_cases.into_iter().map(|(s, b)| (s, BooleanResult(b))))
-            .chain(void_cases.into_iter().map(|s| (s, VoidResult)))
+            .map(|(s, i)| (s, Integer(i)))
+            .chain(bool_cases.into_iter().map(|(s, b)| (s, Boolean(b))))
+            .chain(undefined_cases.into_iter().map(|s| (s, Undefined)))
             .collect()
     }
 }

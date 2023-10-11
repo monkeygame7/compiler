@@ -90,8 +90,8 @@ impl DiagnosticBag {
     ) {
         self.add_message(
             format!(
-                "'{:?}' is not supported between '{}' and '{:?}'",
-                l_type, op, r_type
+                "'{}' is not supported between '{:?}' and '{:?}'",
+                op, l_type, r_type
             ),
             span,
         );
@@ -109,15 +109,15 @@ impl DiagnosticBag {
         );
     }
 
-    pub fn report_bad_expression(&self, span: TextSpan) {
-        self.add_message("Not a valid expression".to_string(), span);
-    }
-
     pub fn report_identifier_not_found(&self, identifier: &str, span: TextSpan) {
         self.add_message(
             format!("'{}' is not defined in this scope", identifier),
             span,
         );
+    }
+
+    pub fn report_invalid_expression(&self, span: TextSpan) {
+        self.add_message("Expression is not valid".to_string(), span);
     }
 }
 
