@@ -16,47 +16,46 @@ impl TextSpan {
         TextSpan { start, end }
     }
 
-    fn len(&self) -> usize {
-        self.end - self.start
-    }
-
-    fn contains(&self, position: usize) -> bool {
-        self.start <= position && position < self.end
-    }
-
     pub fn to(self, other: TextSpan) -> Self {
-        TextSpan {
-            start: self.start,
-            end: other.end,
-        }
+        TextSpan::new(self.start, other.end)
     }
 }
 
 pub struct DiagnosticMessage {
     pub message: String,
     pub span: TextSpan,
-}
-
-impl DiagnosticMessage {
-    pub fn for_range(message: String, span: TextSpan) -> Self {
-        DiagnosticMessage { message, span }
-    }
+    pub line_number: usize,
 }
 
 impl Display for DiagnosticMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("ERR: {}", self.message))
+        f.write_fmt(format_args!("ERR L{}: {}", self.line_number, self.message))
     }
 }
 
 pub struct DiagnosticBag {
     messages: Cell<Vec<DiagnosticMessage>>,
+    line_break_spans: Vec<TextSpan>,
 }
 
 impl DiagnosticBag {
-    pub fn new() -> Self {
+    pub fn new(text: &str) -> Self {
+        let line_break_positions: Vec<_> = text
+            .chars()
+            .enumerate()
+            .filter_map(|(pos, c)| Some(pos).filter(|_| c == '\n'))
+            .collect();
+        let mut line_break_spans = vec![];
+        let mut start = 0;
+        for end in line_break_positions {
+            line_break_spans.push(TextSpan::new(start, end));
+            start = end;
+        }
+        line_break_spans.push(TextSpan::new(start, text.len()));
+
         Self {
             messages: Cell::new(vec![]),
+            line_break_spans,
         }
     }
 
@@ -67,8 +66,39 @@ impl DiagnosticBag {
         result
     }
 
+    fn find_line_number(&self, pos: usize) -> usize {
+        let mut lower = 0;
+        let mut upper = self.line_break_spans.len();
+
+        while lower < upper {
+            let middle = (lower + upper) / 2;
+            let span = self.line_break_spans[middle];
+
+            if pos < span.start {
+                upper = middle;
+            } else if pos > span.end {
+                lower = middle;
+            } else {
+                lower = middle;
+                break;
+            }
+        }
+
+        return lower + 1;
+    }
+
+    fn make_diagnostic(&self, message: String, span: TextSpan) -> DiagnosticMessage {
+        let line_number = self.find_line_number(span.start);
+
+        DiagnosticMessage {
+            message,
+            span,
+            line_number,
+        }
+    }
+
     fn add_message(&self, message: String, span: TextSpan) {
-        let diagnostic = DiagnosticMessage::for_range(message, span);
+        let diagnostic = self.make_diagnostic(message, span);
         let mut messages = self.messages.take();
         messages.push(diagnostic);
         self.messages.set(messages);
@@ -128,5 +158,38 @@ impl IntoIterator for DiagnosticBag {
 
     fn into_iter(self) -> Self::IntoIter {
         self.messages.take().into_iter()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_line_number() {
+        let text = r#"foo
+                     bar
+                     baz
+                     biz
+                     boz
+                     foo again
+                     $ looking for that
+                     more stuff
+                     more
+                     "#;
+        let bag = DiagnosticBag::new(text);
+        let target_pos = text.find('$').unwrap();
+        let result = bag.find_line_number(target_pos);
+
+        assert_eq!(result, 7);
+    }
+
+    #[test]
+    fn test_line_number_none() {
+        let text = " ";
+        let bag = DiagnosticBag::new(text);
+        let target = 0;
+
+        assert_eq!(bag.find_line_number(target), 1);
     }
 }

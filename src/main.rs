@@ -44,18 +44,19 @@ fn main() -> io::Result<()> {
         let result = evaluator.evaluate();
         match result {
             Ok(r) => {
-                println!("{}", r);
+                println!("\n{}", r);
                 buffer.clear()
             }
             Err(errors) if line_buffer.trim().is_empty() => {
                 for error in errors {
-                    println!("{}", error.message);
+                    println!("{}", error);
                     let span = error.span;
                     let pre = &buffer[..span.start].trim_start();
                     let highlight = &buffer[span.start..span.end].red();
                     let post = &buffer[span.end..].trim_end();
                     println!("{}{}{}", pre, highlight, post);
                 }
+                println!();
                 buffer.clear()
             }
             _ => continue,

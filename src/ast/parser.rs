@@ -13,17 +13,18 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<SyntaxToken>) -> Parser {
+    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
         Parser {
             tokens,
             current_position: 0,
-            diagnostics: DiagnosticBag::new(),
+            diagnostics,
         }
     }
 
     pub fn parse(text: String) -> Ast {
+        let diagnostics = DiagnosticBag::new(&text);
         let mut lexer = Lexer::new(text);
         let mut tokens = Vec::new();
 
@@ -41,7 +42,7 @@ impl Parser {
             }
         }
 
-        let parser = Parser::new(tokens);
+        let parser = Parser::new(tokens, diagnostics);
 
         parser.parse_ast()
     }
