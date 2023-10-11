@@ -2,7 +2,8 @@ use crate::diagnostics::DiagnosticBag;
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
-    Ast, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind,
+    Ast, AstNode, AstNodeKind, BinaryOperator, BinaryOperatorKind, UnaryOperator,
+    UnaryOperatorKind,
 };
 
 pub struct Parser {
@@ -12,13 +13,13 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser {
+    fn new(tokens: Vec<SyntaxToken>) -> Parser {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
         Parser {
             tokens,
             current_position: 0,
-            diagnostics,
+            diagnostics: DiagnosticBag::new(),
         }
     }
 
@@ -40,7 +41,7 @@ impl Parser {
             }
         }
 
-        let parser = Parser::new(tokens, lexer.diagnostics);
+        let parser = Parser::new(tokens);
 
         parser.parse_ast()
     }
@@ -76,21 +77,25 @@ impl Parser {
     }
 
     fn parse_unary_expression(&mut self, priority: usize) -> Option<AstNode> {
-        let operator = match self.current().kind {
+        let operator_kind = match self.current().kind {
             TokenKind::Plus => UnaryOperatorKind::Identity,
             TokenKind::Dash => UnaryOperatorKind::Negate,
             TokenKind::Bang => UnaryOperatorKind::LogicalNot,
             _ => return None,
         };
-        let next_token = self.next();
+        let operator_token = self.next();
 
-        let operator_prioirty = unary_operator_priority(&next_token);
+        let operator_prioirty = unary_operator_priority(&operator_token);
         if operator_prioirty < priority {
             return None;
         }
+        let operator = UnaryOperator {
+            kind: operator_kind,
+            span: operator_token.span,
+        };
 
         let expression = self.parse_expression(operator_prioirty);
-        let span = next_token.span.to(expression.span);
+        let span = operator_token.span.to(expression.span);
         Some(AstNode {
             kind: AstNodeKind::UnaryExpression(operator, Box::new(expression)),
             span,
@@ -103,7 +108,7 @@ impl Parser {
             .unwrap_or_else(|| self.parse_primary_expression());
 
         loop {
-            let operator_token = match self.current().kind {
+            let operator_kind = match self.current().kind {
                 TokenKind::Plus => BinaryOperatorKind::Add,
                 TokenKind::Dash => BinaryOperatorKind::Subtract,
                 TokenKind::Star => BinaryOperatorKind::Mulitply,
@@ -124,16 +129,15 @@ impl Parser {
             if operator_priority <= priority {
                 break;
             }
-            // Important to consume token here
-            self.next();
+            let operator_token = self.next();
+            let operator = BinaryOperator {
+                kind: operator_kind,
+                span: operator_token.span,
+            };
             let right = self.parse_expression(operator_priority);
             let span = left.span.to(right.span);
             left = AstNode {
-                kind: AstNodeKind::BinaryExpression(
-                    Box::new(left),
-                    operator_token,
-                    Box::new(right),
-                ),
+                kind: AstNodeKind::BinaryExpression(Box::new(left), operator, Box::new(right)),
                 span,
             }
         }
@@ -251,7 +255,7 @@ mod test {
             let mut stack = vec![];
             let ast = Parser::parse(text);
 
-            assert_eq!(ast.diagnostics.messages.take().len(), 0);
+            assert_eq!(ast.diagnostics.into_iter().collect::<Vec<_>>().len(), 0);
 
             stack.push(ast.root);
 
@@ -264,11 +268,11 @@ mod test {
                     AstNodeKind::BinaryExpression(l, op, r) => {
                         stack.push(*r);
                         stack.push(*l);
-                        Matcher::Binary(op)
+                        Matcher::Binary(op.kind)
                     }
                     AstNodeKind::UnaryExpression(op, expr) => {
                         stack.push(*expr);
-                        Matcher::Unary(op)
+                        Matcher::Unary(op.kind)
                     }
                 };
                 nodes.push(matcher);
@@ -363,7 +367,6 @@ mod test {
         asserter.assert(Matcher::Unary(UnaryOperatorKind::Negate));
         asserter.assert(Matcher::Unary(UnaryOperatorKind::Identity));
         asserter.assert(Matcher::Int(3));
-
 
         asserter.finish();
     }

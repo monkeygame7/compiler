@@ -32,19 +32,19 @@ fn main() -> io::Result<()> {
         if show_tree {
             println!("{}", tree.root);
         }
-        let errors = tree.diagnostics.messages.take();
-        if errors.is_empty() {
-            let evaluator = Evaluator::new(tree);
-            let result = evaluator.evaluate();
-            println!("{}", result);
-        } else {
-            for error in errors {
-                println!("{}", error.message);
-                let span = error.span;
-                let pre = &buffer[..span.start];
-                let highlight = &buffer[span.start..span.end].red();
-                let post = &buffer[span.end..];
-                println!("{}{}{}", pre, highlight, post);
+        let evaluator = Evaluator::new(tree);
+        let result = evaluator.evaluate();
+        match result {
+            Ok(r) => println!("{}", r),
+            Err(errors) => {
+                for error in errors {
+                    println!("{}", error.message);
+                    let span = error.span;
+                    let pre = &buffer[..span.start];
+                    let highlight = &buffer[span.start..span.end].red();
+                    let post = &buffer[span.end..];
+                    println!("{}{}{}", pre, highlight, post);
+                }
             }
         }
     }

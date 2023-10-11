@@ -1,11 +1,10 @@
 use std::fmt::Display;
 
-use crate::diagnostics::{DiagnosticBag, TextSpan};
+use crate::diagnostics::TextSpan;
 
 pub struct Lexer {
     chars: Vec<char>,
     current_position: usize,
-    pub diagnostics: DiagnosticBag,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -94,7 +93,6 @@ impl Lexer {
         Lexer {
             chars,
             current_position: 0,
-            diagnostics: DiagnosticBag::new(),
         }
     }
 
@@ -149,12 +147,6 @@ impl Lexer {
                 unrecognized => TokenKind::BadToken(unrecognized.to_string()),
             },
         };
-
-        if let TokenKind::BadToken(s) = &kind {
-            let span = TextSpan::new(previous_position, self.current_position);
-            self.diagnostics
-                .report_unrecognized_symbol(s.to_owned(), span);
-        }
 
         SyntaxToken {
             kind,

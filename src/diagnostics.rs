@@ -1,8 +1,11 @@
-use std::{cell::Cell, fmt::Display};
+use std::{
+    cell::Cell,
+    fmt::{Debug, Display},
+};
 
-use crate::{ast::lexer::SyntaxToken, evaluator::ResultType};
+use crate::ast::lexer::SyntaxToken;
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct TextSpan {
     pub start: usize,
     pub end: usize,
@@ -47,7 +50,7 @@ impl Display for DiagnosticMessage {
 }
 
 pub struct DiagnosticBag {
-    pub messages: Cell<Vec<DiagnosticMessage>>,
+    messages: Cell<Vec<DiagnosticMessage>>,
 }
 
 impl DiagnosticBag {
@@ -57,15 +60,18 @@ impl DiagnosticBag {
         }
     }
 
+    pub fn has_errors(&self) -> bool {
+        let messages = self.messages.take();
+        let result = messages.len() > 0;
+        self.messages.set(messages);
+        result
+    }
+
     fn add_message(&self, message: String, span: TextSpan) {
         let diagnostic = DiagnosticMessage::for_range(message, span);
         let mut messages = self.messages.take();
         messages.push(diagnostic);
         self.messages.set(messages);
-    }
-
-    pub fn report_unrecognized_symbol(&self, unrecognized: String, span: TextSpan) {
-        self.add_message(format!("Unrecognized symbol '{}'", unrecognized), span)
     }
 
     pub fn report_unexpected_token(&self, given_token: SyntaxToken, expected_kind: impl Display) {
@@ -77,14 +83,14 @@ impl DiagnosticBag {
 
     pub fn report_unsupported_binary_operator(
         &self,
-        l_type: impl Display,
+        l_type: impl Debug,
         op: impl Display,
-        r_type: impl Display,
+        r_type: impl Debug,
         span: TextSpan,
     ) {
         self.add_message(
             format!(
-                "'{}' is not supported between '{}' and '{}'",
+                "'{:?}' is not supported between '{}' and '{:?}'",
                 l_type, op, r_type
             ),
             span,
@@ -105,5 +111,15 @@ impl DiagnosticBag {
 
     pub fn report_bad_expression(&self, span: TextSpan) {
         self.add_message("Not a valid expression".to_string(), span);
+    }
+}
+
+impl IntoIterator for DiagnosticBag {
+    type Item = DiagnosticMessage;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.messages.take().into_iter()
     }
 }

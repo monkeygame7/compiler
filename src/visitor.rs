@@ -1,34 +1,38 @@
 use std::fmt::Display;
 
-use crate::ast::{AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind};
+use crate::{
+    ast::{AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
+    diagnostics::TextSpan,
+};
 
 impl AstNode {
     pub fn visit(&self, visitor: &mut impl AstVisitor) {
+        let span = &self.span;
         match &self.kind {
-            AstNodeKind::BadNode => visitor.visit_bad_node(),
-            AstNodeKind::IntegerLiteral(i) => visitor.visit_integer(*i),
-            AstNodeKind::BooleanLiteral(b) => visitor.visit_boolean(*b),
-            AstNodeKind::Identifier(s) => visitor.visit_identifier(s),
+            AstNodeKind::BadNode => visitor.visit_bad_node(span),
+            AstNodeKind::IntegerLiteral(i) => visitor.visit_integer(*i, span),
+            AstNodeKind::BooleanLiteral(b) => visitor.visit_boolean(*b, span),
+            AstNodeKind::Identifier(s) => visitor.visit_identifier(s, span),
             AstNodeKind::BinaryExpression(left, op, right) => {
                 left.visit(visitor);
                 right.visit(visitor);
-                visitor.visit_binary_expression(op)
+                visitor.visit_binary_expression(&op.kind, &op.span)
             }
             AstNodeKind::UnaryExpression(op, expr) => {
                 expr.visit(visitor);
-                visitor.visit_unary_expression(op)
+                visitor.visit_unary_expression(&op.kind, &op.span)
             }
         }
     }
 }
 
 pub trait AstVisitor {
-    fn visit_integer(&mut self, value: i32);
-    fn visit_boolean(&mut self, value: bool);
-    fn visit_identifier(&mut self, value: &String);
-    fn visit_binary_expression(&mut self, op: &BinaryOperatorKind);
-    fn visit_unary_expression(&mut self, op: &UnaryOperatorKind);
-    fn visit_bad_node(&mut self);
+    fn visit_integer(&mut self, value: i32, span: &TextSpan);
+    fn visit_boolean(&mut self, value: bool, span: &TextSpan);
+    fn visit_identifier(&mut self, value: &String, span: &TextSpan);
+    fn visit_binary_expression(&mut self, op: &BinaryOperatorKind, span: &TextSpan);
+    fn visit_unary_expression(&mut self, op: &UnaryOperatorKind, span: &TextSpan);
+    fn visit_bad_node(&mut self, span: &TextSpan);
 }
 
 impl Display for AstNode {
@@ -62,14 +66,13 @@ fn display_helper(
         }
         AstNodeKind::Identifier(s) => f.write_fmt(format_args!("{}{} {}\n", padding, marker, s)),
         AstNodeKind::BinaryExpression(l, op, r) => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op))?;
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op.kind))?;
             display_helper(&l, f, &child_padding, false)?;
             display_helper(&r, f, &child_padding, true)
         }
         AstNodeKind::UnaryExpression(op, expr) => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op))?;
+            f.write_fmt(format_args!("{}{} {}\n", padding, marker, op.kind))?;
             display_helper(expr, f, &child_padding, true)
         }
     }
 }
-

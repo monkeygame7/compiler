@@ -14,8 +14,8 @@ pub enum AstNodeKind {
     BadNode,
     IntegerLiteral(i32),
     BooleanLiteral(bool),
-    BinaryExpression(Box<AstNode>, BinaryOperatorKind, Box<AstNode>),
-    UnaryExpression(UnaryOperatorKind, Box<AstNode>),
+    BinaryExpression(Box<AstNode>, BinaryOperator, Box<AstNode>),
+    UnaryExpression(UnaryOperator, Box<AstNode>),
     Identifier(String),
 }
 
@@ -42,11 +42,21 @@ pub enum BinaryOperatorKind {
     GreaterThanOrEquals,
 }
 
+pub struct BinaryOperator {
+    pub kind: BinaryOperatorKind,
+    pub span: TextSpan,
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum UnaryOperatorKind {
     Identity,
     Negate,
     LogicalNot,
+}
+
+pub struct UnaryOperator {
+    pub kind: UnaryOperatorKind,
+    pub span: TextSpan,
 }
 
 impl Display for BinaryOperatorKind {
