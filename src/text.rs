@@ -59,6 +59,11 @@ impl SourceText {
         self.text.chars()
     }
 
+    pub fn relative_span(&self, original: TextSpan) -> TextSpan {
+        let line = self.get_text_line(original.start);
+        TextSpan::new(original.start - line.start, original.end - line.start)
+    }
+
     fn parse_lines(text: &AsciiStr) -> Vec<TextLine> {
         let mut lines = vec![];
         let mut chars = text.chars().enumerate().peekable();
@@ -90,7 +95,7 @@ impl SourceText {
         lines
     }
 
-    pub fn get_line(&self, pos: usize) -> &AsciiStr {
+    fn get_text_line(&self, pos: usize) -> &TextLine {
         let mut lower = 0;
         let mut upper = self.lines.len() - 1;
 
@@ -100,15 +105,21 @@ impl SourceText {
 
             if line.start > pos {
                 upper = middle - 1;
-            // this is probably dangerous...integer underflow
+                // this is probably dangerous...integer underflow
             } else if line.end_with_line_break() - 1 < pos {
                 lower = middle + 1;
             } else {
-                return &self.text[line.start..line.end()];
+                return line;
             }
         }
 
-        panic!("Line not found!")
+        // was not found, just return the last line
+        &self.lines[self.lines.len() - 1]
+    }
+
+    pub fn get_line(&self, pos: usize) -> &AsciiStr {
+        let line = self.get_text_line(pos);
+        return &self.text[line.start..line.end()];
     }
 }
 

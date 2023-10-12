@@ -9,10 +9,10 @@ use crate::{
     text::TextSpan,
 };
 
-pub struct Evaluator {
-    root: AstNode,
+pub struct Evaluator<'a> {
+    root: &'a AstNode,
     scopes: Vec<HashMap<String, ResultType>>,
-    diagnostics: DiagnosticBag,
+    diagnostics: &'a DiagnosticBag,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -50,50 +50,39 @@ impl Debug for ResultType {
     }
 }
 
-impl Evaluator {
-    pub fn new(program: Ast) -> Evaluator {
+impl<'a> Evaluator<'a> {
+    pub fn new(program: &Ast) -> Evaluator {
         Evaluator {
-            root: program.root,
+            root: &program.root,
             scopes: vec![],
-            diagnostics: program.diagnostics,
+            diagnostics: &program.diagnostics,
         }
     }
 
-    pub fn evaluate(mut self) -> Result<ResultType, DiagnosticBag> {
+    pub fn evaluate(&mut self) -> ResultType {
         let node = self.root;
-        // lol...
-        self.root = AstNode {
-            kind: Box::new(AstNodeKind::BadNode),
-            span: TextSpan::new(0, 0),
-        };
-        let result = self.evaluate_node(node);
-
-        if self.diagnostics.has_errors() {
-            Err(self.diagnostics)
-        } else {
-            Ok(result)
-        }
+        self.evaluate_node(&node)
     }
 
-    pub fn evaluate_node(&mut self, node: AstNode) -> ResultType {
+    pub fn evaluate_node(&mut self, node: &AstNode) -> ResultType {
         let span = node.span;
-        match *node.kind {
+        match node.kind.as_ref() {
             AstNodeKind::BadNode => self.evaluate_bad_node(span),
-            AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(i, span),
-            AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(b, span),
+            AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(*i, span),
+            AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(*b, span),
             AstNodeKind::Identifier(s) => self.evaluate_identifier(&s, span),
             AstNodeKind::BinaryExpression(left, op, right) => {
-                let left = self.evaluate_node(left);
-                let right = self.evaluate_node(right);
+                let left = self.evaluate_node(&left);
+                let right = self.evaluate_node(&right);
                 self.evaluate_binary_expression(left, op.kind, right, op.span)
             }
             AstNodeKind::UnaryExpression(op, expr) => {
-                let result = self.evaluate_node(expr);
+                let result = self.evaluate_node(&expr);
                 self.evaluate_unary_expression(op.kind, result, op.span)
             }
             AstNodeKind::Scope(expr) => {
                 self.scopes.push(HashMap::new());
-                let result = self.evaluate_node(expr);
+                let result = self.evaluate_node(&expr);
                 self.scopes.pop();
                 result
             }
@@ -245,41 +234,39 @@ mod test {
 
         fn evaluate(&self, expected_result: ResultType) {
             let tree = Parser::parse(&self.actual_input).unwrap();
-            let evaluator = Evaluator::new(tree);
+            let evaluator = Evaluator::new(&tree);
             let result = evaluator.evaluate();
 
-            match result {
-                Ok(r) => {
-                    assert!(
-                        self.expected_spans.is_empty(),
-                        "Expected errors in '{}' but found none",
-                        self.input
-                    );
-                    assert_eq!(r, expected_result);
-                }
-                Err(errors) => {
-                    let mut messages = vec![];
-                    let mut errors: Vec<_> = errors
-                        .into_iter()
-                        .map(|dm| {
-                            messages.push(dm.message);
-                            dm.span
-                        })
-                        .collect();
-                    assert!(
-                        self.expected_spans.len() > 0,
-                        "Expected no errors in '{}' but found:\n{:?}",
-                        self.input,
-                        messages,
-                    );
+            if tree.diagnostics.has_errors() {
+                let mut messages = vec![];
+                let mut errors: Vec<_> = tree
+                    .diagnostics
+                    .into_iter()
+                    .map(|dm| {
+                        messages.push(dm.message);
+                        dm.span
+                    })
+                    .collect();
+                assert!(
+                    self.expected_spans.len() > 0,
+                    "Expected no errors in '{}' but found:\n{:?}",
+                    self.input,
+                    messages,
+                );
 
-                    errors.sort();
-                    assert_eq!(
-                        errors, self.expected_spans,
-                        "Unexpected errors in '{}':\n{:?}",
-                        self.input, messages
-                    );
-                }
+                errors.sort();
+                assert_eq!(
+                    errors, self.expected_spans,
+                    "Unexpected errors in '{}':\n{:?}",
+                    self.input, messages
+                );
+            } else {
+                assert!(
+                    self.expected_spans.is_empty(),
+                    "Expected errors in '{}' but found none",
+                    self.input
+                );
+                assert_eq!(result, expected_result);
             }
         }
     }
