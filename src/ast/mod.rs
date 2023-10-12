@@ -1,11 +1,15 @@
 use std::fmt::Display;
 
-use crate::{diagnostics::DiagnosticBag, text::TextSpan};
+use crate::{
+    diagnostics::DiagnosticBag,
+    text::{SourceText, TextSpan},
+};
 
 pub mod lexer;
 pub mod parser;
 
 pub struct Ast {
+    pub src: SourceText,
     pub root: AstNode,
     pub diagnostics: DiagnosticBag,
 }
@@ -133,7 +137,7 @@ fn display_helper(
             display_helper(expr, f, &child_padding, true)
         }
         AstNodeKind::Scope(expr) => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "{}"))?;
+            f.write_fmt(format_args!("{}{}{}\n", padding, marker, "{ }"))?;
             display_helper(expr, f, &child_padding, true)
         }
     }

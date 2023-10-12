@@ -1,4 +1,6 @@
-use crate::diagnostics::DiagnosticBag;
+use ascii::AsAsciiStrError;
+
+use crate::{diagnostics::DiagnosticBag, text::SourceText};
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
@@ -23,9 +25,10 @@ impl Parser {
         }
     }
 
-    pub fn parse(text: String) -> Ast {
-        let diagnostics = DiagnosticBag::new(&text);
-        let mut lexer = Lexer::new(text);
+    pub fn parse(text: &str) -> Result<Ast, AsAsciiStrError> {
+        let diagnostics = DiagnosticBag::new();
+        let src = SourceText::from(&text)?;
+        let mut lexer = Lexer::new(&src);
         let mut tokens = Vec::new();
 
         loop {
@@ -42,9 +45,14 @@ impl Parser {
             }
         }
 
-        let parser = Parser::new(tokens, diagnostics);
+        let mut parser = Parser::new(tokens, diagnostics);
 
-        parser.parse_ast()
+        let root = parser.parse_ast();
+        Ok(Ast {
+            src,
+            root,
+            diagnostics: parser.diagnostics,
+        })
     }
 
     fn current(&mut self) -> &SyntaxToken {
@@ -59,7 +67,7 @@ impl Parser {
         current.clone()
     }
 
-    fn parse_ast(mut self) -> Ast {
+    fn parse_ast(&mut self) -> AstNode {
         let program = self.parse_expression(0);
 
         let eof_token = self.next();
@@ -67,10 +75,7 @@ impl Parser {
             self.diagnostics
                 .report_unexpected_token(eof_token, TokenKind::EOF);
         }
-        Ast {
-            root: program,
-            diagnostics: self.diagnostics,
-        }
+        program
     }
 
     fn parse_expression(&mut self, priority: usize) -> AstNode {
@@ -283,7 +288,7 @@ mod test {
         fn new(text: String) -> Self {
             let mut nodes = vec![];
             let mut stack = vec![];
-            let ast = Parser::parse(text.to_string());
+            let ast = Parser::parse(&text).unwrap();
 
             let errors: Vec<_> = ast.diagnostics.into_iter().map(|dm| dm.message).collect();
             assert_eq!(errors.len(), 0, "Had errors parsing: {:?}", errors);

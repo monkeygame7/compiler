@@ -37,7 +37,7 @@ fn main() -> io::Result<()> {
         }
         buffer += &line_buffer;
 
-        let tree = Parser::parse(buffer.to_owned());
+        let tree = Parser::parse(&buffer).unwrap();
         if show_tree {
             println!("{}", tree.root);
         }

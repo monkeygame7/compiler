@@ -244,7 +244,7 @@ mod test {
         }
 
         fn evaluate(&self, expected_result: ResultType) {
-            let tree = Parser::parse(self.actual_input.to_owned());
+            let tree = Parser::parse(&self.actual_input).unwrap();
             let evaluator = Evaluator::new(tree);
             let result = evaluator.evaluate();
 

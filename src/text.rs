@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ascii::{AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
+use ascii::{AsAsciiStrError, AsciiChar, AsciiStr, AsciiString, Chars};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct TextSpan {
@@ -55,6 +55,10 @@ impl SourceText {
         Ok(src)
     }
 
+    pub fn chars(&self) -> Chars<'_> {
+        self.text.chars()
+    }
+
     fn parse_lines(text: &AsciiStr) -> Vec<TextLine> {
         let mut lines = vec![];
         let mut chars = text.chars().enumerate().peekable();
@@ -65,16 +69,19 @@ impl SourceText {
             let line_break_length = match (ch, next_ch) {
                 (AsciiChar::CarriageReturn, Some((_, AsciiChar::LineFeed))) => {
                     chars.next();
-                    pos += 1;
                     2
                 }
                 (AsciiChar::LineFeed, _) => 1,
-                (_, None) => 0,
+                (_, None) => {
+                    pos += 1;
+                    0
+                }
                 _ => continue,
             };
+            let length = pos - line_start;
             lines.push(TextLine {
                 start: line_start,
-                length: pos - line_start + 1 - line_break_length,
+                length,
                 line_break_length,
             });
             line_start = pos + line_break_length;
@@ -86,25 +93,17 @@ impl SourceText {
     pub fn get_line(&self, pos: usize) -> &AsciiStr {
         let mut lower = 0;
         let mut upper = self.lines.len() - 1;
-        println!("{}", pos);
+
         while lower <= upper {
             let middle = (lower + upper) / 2;
             let line = &self.lines[middle];
-            println!(
-                "{} - {} - {} - {}",
-                upper,
-                middle,
-                lower,
-                line.end_with_line_break()
-            );
-            println!("{:?}", line);
+
             if line.start > pos {
                 upper = middle - 1;
             // this is probably dangerous...integer underflow
             } else if line.end_with_line_break() - 1 < pos {
                 lower = middle + 1;
             } else {
-                println!();
                 return &self.text[line.start..line.end()];
             }
         }
@@ -136,6 +135,28 @@ mod test {
                 line_break_length: 2
             }]
         );
+    }
+
+    #[test]
+    fn test_source_text_carriage_return_newline() {
+        let text = "foo\r\nbar";
+        let src = SourceText::from(text).unwrap();
+
+        assert_eq!(
+            src.lines,
+            vec![
+                TextLine {
+                    start: 0,
+                    length: 3,
+                    line_break_length: 2
+                },
+                TextLine {
+                    start: text.find("bar").unwrap(),
+                    length: 3,
+                    line_break_length: 0,
+                }
+            ]
+        )
     }
 
     #[test]

@@ -1,9 +1,11 @@
 use std::fmt::Display;
 
-use crate::text::TextSpan;
+use ascii::{AsciiChar, AsciiString};
+
+use crate::text::{SourceText, TextSpan};
 
 pub struct Lexer {
-    chars: Vec<char>,
+    chars: Vec<AsciiChar>,
     current_position: usize,
 }
 
@@ -92,19 +94,19 @@ impl Display for SyntaxToken {
 }
 
 impl Lexer {
-    pub fn new(text: String) -> Lexer {
-        let chars = text.chars().collect();
+    pub fn new(src: &SourceText) -> Lexer {
+        let chars = src.chars().collect();
         Lexer {
             chars,
             current_position: 0,
         }
     }
 
-    fn peek(&self) -> Option<char> {
+    fn peek(&self) -> Option<AsciiChar> {
         self.chars.get(self.current_position).copied()
     }
 
-    fn next(&mut self) -> Option<char> {
+    fn next(&mut self) -> Option<AsciiChar> {
         let current = self.chars.get(self.current_position);
         if self.current_position < self.chars.len() {
             self.current_position += 1;
@@ -116,40 +118,48 @@ impl Lexer {
         let previous_position = self.current_position;
         let kind = match self.next() {
             None => TokenKind::EOF,
-            Some(c) => match c {
-                '+' => TokenKind::Plus,
-                '-' => TokenKind::Dash,
-                '*' => TokenKind::Star,
-                '/' => TokenKind::Slash,
-                '(' => TokenKind::LeftParenthesis,
-                ')' => TokenKind::RightParenthesis,
-                '{' => TokenKind::LeftCurly,
-                '}' => TokenKind::RightCurly,
-                '&' => self.match_potential_double(
-                    '&',
+            Some(ch) => match ch {
+                AsciiChar::Plus => TokenKind::Plus,
+                AsciiChar::Minus => TokenKind::Dash,
+                AsciiChar::Asterisk => TokenKind::Star,
+                AsciiChar::Slash => TokenKind::Slash,
+                AsciiChar::ParenOpen => TokenKind::LeftParenthesis,
+                AsciiChar::ParenClose => TokenKind::RightParenthesis,
+                AsciiChar::CurlyBraceOpen => TokenKind::LeftCurly,
+                AsciiChar::CurlyBraceClose => TokenKind::RightCurly,
+                AsciiChar::Ampersand => self.match_potential_double(
+                    AsciiChar::Ampersand,
                     TokenKind::AmpersandAmpersand,
                     TokenKind::Ampersand,
                 ),
-                '|' => self.match_potential_double('|', TokenKind::PipePipe, TokenKind::Pipe),
-                '!' => self.match_potential_double('=', TokenKind::BangEquals, TokenKind::Bang),
-                '=' => match self.next() {
-                    Some('=') => TokenKind::EqualsEquals,
-                    Some(c) => TokenKind::BadToken(c.to_string()),
+                AsciiChar::VerticalBar => self.match_potential_double(
+                    AsciiChar::VerticalBar,
+                    TokenKind::PipePipe,
+                    TokenKind::Pipe,
+                ),
+                AsciiChar::Exclamation => self.match_potential_double(
+                    AsciiChar::Equal,
+                    TokenKind::BangEquals,
+                    TokenKind::Bang,
+                ),
+                AsciiChar::Equal => match self.next() {
+                    Some(AsciiChar::Equal) => TokenKind::EqualsEquals,
+                    Some(ch) => TokenKind::BadToken(ch.to_string()),
                     None => TokenKind::BadToken("=".to_string()),
                 },
-                '<' => self.match_potential_double(
-                    '=',
+                AsciiChar::LessThan => self.match_potential_double(
+                    AsciiChar::Equal,
                     TokenKind::LeftAngleEquals,
                     TokenKind::LeftAngleBracket,
                 ),
-                '>' => self.match_potential_double(
-                    '=',
+                AsciiChar::GreaterThan => self.match_potential_double(
+                    AsciiChar::Equal,
                     TokenKind::RightAngleEquals,
                     TokenKind::RightAngleBracket,
                 ),
-                c if c.is_whitespace() => self.read_whitespace(c),
-                c if c.is_numeric() => self.read_integer(c),
-                c if c.is_alphabetic() => self.read_literal(c),
+                ch if ch.is_whitespace() => self.read_whitespace(ch),
+                ch if ch.is_ascii_digit() => self.read_integer(ch),
+                ch if ch.is_alphabetic() => self.read_literal(ch),
                 unrecognized => TokenKind::BadToken(unrecognized.to_string()),
             },
         };
@@ -160,21 +170,21 @@ impl Lexer {
         }
     }
 
-    fn read_whitespace(&mut self, first_whitespace_char: char) -> TokenKind {
-        let mut whitespace = first_whitespace_char.to_string();
+    fn read_whitespace(&mut self, first_whitespace_char: AsciiChar) -> TokenKind {
+        let mut whitespace = AsciiString::from(first_whitespace_char);
 
-        while let Some(c) = self.peek() {
-            if c.is_whitespace() {
+        while let Some(ch) = self.peek() {
+            if ch.is_whitespace() {
                 whitespace.push(self.next().unwrap());
             } else {
                 break;
             }
         }
-        TokenKind::WhiteSpace(whitespace)
+        TokenKind::WhiteSpace(whitespace.to_string())
     }
 
-    fn read_integer(&mut self, first_integer_char: char) -> TokenKind {
-        let integer_string = self.match_continuous(first_integer_char, |c| c.is_numeric());
+    fn read_integer(&mut self, first_integer_char: AsciiChar) -> TokenKind {
+        let integer_string = self.match_continuous(first_integer_char, |ch| ch.is_ascii_digit());
 
         let integer = integer_string.parse();
         match integer {
@@ -183,8 +193,10 @@ impl Lexer {
         }
     }
 
-    fn read_literal(&mut self, first_char: char) -> TokenKind {
-        let literal_string = self.match_continuous(first_char, |c| c.is_alphanumeric() || c == '_');
+    fn read_literal(&mut self, first_char: AsciiChar) -> TokenKind {
+        let literal_string = self.match_continuous(first_char, |ch| {
+            ch.is_alphanumeric() || ch == AsciiChar::UnderScore
+        });
 
         match literal_string.as_str() {
             "true" => TokenKind::Boolean(true),
@@ -193,31 +205,31 @@ impl Lexer {
         }
     }
 
-    fn match_continuous<F>(&mut self, first_char: char, test: F) -> String
+    fn match_continuous<F>(&mut self, first_char: AsciiChar, test: F) -> String
     where
-        F: Fn(char) -> bool,
+        F: Fn(AsciiChar) -> bool,
     {
-        let mut string = first_char.to_string();
+        let mut string = AsciiString::from(first_char);
 
-        while let Some(c) = self.peek() {
-            if test(c) {
+        while let Some(ch) = self.peek() {
+            if test(ch) {
                 string.push(self.next().unwrap())
             } else {
                 break;
             }
         }
 
-        string
+        string.to_string()
     }
 
     fn match_potential_double(
         &mut self,
-        extra_match: char,
+        extra_match: AsciiChar,
         double_symbol: TokenKind,
         single_symbol: TokenKind,
     ) -> TokenKind {
         match self.peek() {
-            Some(c) if c == extra_match => {
+            Some(ch) if ch == extra_match => {
                 self.next();
                 double_symbol
             }
@@ -232,7 +244,8 @@ mod test {
     use TokenKind::*;
 
     fn lex_tokens(text: String) -> Vec<SyntaxToken> {
-        let mut lexer = Lexer::new(text);
+        let src = SourceText::from(&text).unwrap();
+        let mut lexer = Lexer::new(&src);
         let mut tokens = vec![];
         loop {
             let token = lexer.next_token();
@@ -308,7 +321,6 @@ mod test {
                     .into_iter()
                     .for_each(|(whitespace, expected_whitespace_token)| {
                         let full_text = text1.to_owned() + &whitespace + text2;
-
                         let tokens = lex_tokens(full_text.to_owned());
 
                         assert!(
