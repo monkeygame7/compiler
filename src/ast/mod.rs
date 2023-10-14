@@ -25,6 +25,7 @@ pub enum AstNodeKind {
     Identifier(String),
     Scope(AstNode),
     LetDeclaration(AstNode, AstNode),
+    Statement,
 }
 
 pub struct AstNode {
@@ -183,5 +184,6 @@ fn display_helper(
             display_helper(identifier, f, &child_padding, false, false)?;
             display_helper(expr, f, &child_padding, true, false)
         }
+        AstNodeKind::Statement => todo!(),
     }
 }
