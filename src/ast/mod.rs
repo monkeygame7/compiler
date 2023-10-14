@@ -32,6 +32,12 @@ pub struct AstNode {
     pub span: TextSpan,
 }
 
+#[derive(Clone, Copy)]
+pub enum Type {
+    Int,
+    Bool,
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum BinaryOperatorKind {
     Add,

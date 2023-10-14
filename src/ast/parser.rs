@@ -4,6 +4,7 @@ use ascii::AsAsciiStrError;
 
 use crate::{
     diagnostics::DiagnosticBag,
+    scope::Scope,
     text::{SourceText, TextSpan},
 };
 
@@ -13,20 +14,22 @@ use super::{
     UnaryOperatorKind,
 };
 
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<SyntaxToken>,
     current_position: usize,
     pub diagnostics: DiagnosticBag,
+    current_scope: Scope<'a>,
 }
 
-impl Parser {
-    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser {
+impl<'a> Parser<'a> {
+    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser<'a> {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
         Parser {
             tokens,
             current_position: 0,
             diagnostics,
+            current_scope: Scope::new(None),
         }
     }
 
