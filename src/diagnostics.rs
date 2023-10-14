@@ -45,7 +45,7 @@ impl DiagnosticBag {
         self.messages.set(messages);
     }
 
-    pub fn report_unexpected_token(&self, given_token: SyntaxToken, expected_kind: impl Display) {
+    pub fn report_unexpected_token(&self, given_token: &SyntaxToken, expected_kind: impl Display) {
         self.add_message(
             format!("Expected '{}', but found '{}'", expected_kind, given_token),
             given_token.span,

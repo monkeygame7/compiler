@@ -20,6 +20,7 @@ pub enum TokenKind {
     Integer(i32),
     Boolean(bool),
     Identifier(String),
+    Let,
 
     // int operators
     Plus,
@@ -34,6 +35,7 @@ pub enum TokenKind {
     PipePipe,
     Bang,
     // mixed operators
+    Equals,
     EqualsEquals,
     BangEquals,
     LeftAngleBracket,
@@ -51,12 +53,13 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::EOF => "<EOF>".to_owned(),
+            Self::EOF => "".to_owned(),
             Self::BadToken(s) => s.to_owned(),
             Self::WhiteSpace(s) => s.to_owned(),
             Self::Integer(i) => i.to_string(),
             Self::Boolean(b) => b.to_string(),
             Self::Identifier(s) => s.to_owned(),
+            Self::Let => "let".to_owned(),
             Self::Plus => "+".to_owned(),
             Self::Dash => "-".to_owned(),
             Self::Star => "*".to_owned(),
@@ -66,6 +69,7 @@ impl Display for TokenKind {
             Self::Pipe => "|".to_owned(),
             Self::PipePipe => "||".to_owned(),
             Self::Bang => "!".to_owned(),
+            Self::Equals => "=".to_owned(),
             Self::EqualsEquals => "==".to_owned(),
             Self::BangEquals => "!=".to_owned(),
             Self::LeftAngleBracket => "<".to_owned(),
@@ -142,11 +146,11 @@ impl Lexer {
                     TokenKind::BangEquals,
                     TokenKind::Bang,
                 ),
-                AsciiChar::Equal => match self.next() {
-                    Some(AsciiChar::Equal) => TokenKind::EqualsEquals,
-                    Some(ch) => TokenKind::BadToken(ch.to_string()),
-                    None => TokenKind::BadToken("=".to_string()),
-                },
+                AsciiChar::Equal => self.match_potential_double(
+                    AsciiChar::Equal,
+                    TokenKind::EqualsEquals,
+                    TokenKind::Equals,
+                ),
                 AsciiChar::LessThan => self.match_potential_double(
                     AsciiChar::Equal,
                     TokenKind::LeftAngleEquals,
@@ -201,7 +205,14 @@ impl Lexer {
         match literal_string.as_str() {
             "true" => TokenKind::Boolean(true),
             "false" => TokenKind::Boolean(false),
-            _ => TokenKind::Identifier(literal_string),
+            _ => self.read_keyword_or_identifier(literal_string),
+        }
+    }
+
+    fn read_keyword_or_identifier(&mut self, text: String) -> TokenKind {
+        match text.as_str() {
+            "let" => TokenKind::Let,
+            _ => TokenKind::Identifier(text),
         }
     }
 

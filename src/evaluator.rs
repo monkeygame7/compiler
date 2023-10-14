@@ -86,6 +86,9 @@ impl<'a> Evaluator<'a> {
                 self.scopes.pop();
                 result
             }
+            AstNodeKind::LetDeclaration(identifier, expr) => {
+                todo!();
+            }
         }
     }
 
@@ -234,7 +237,7 @@ mod test {
 
         fn evaluate(&self, expected_result: ResultType) {
             let tree = Parser::parse(&self.actual_input).unwrap();
-            let evaluator = Evaluator::new(&tree);
+            let mut evaluator = Evaluator::new(&tree);
             let result = evaluator.evaluate();
 
             if tree.diagnostics.has_errors() {

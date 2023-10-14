@@ -24,6 +24,7 @@ pub enum AstNodeKind {
     UnaryExpression(UnaryOperator, AstNode),
     Identifier(String),
     Scope(AstNode),
+    LetDeclaration(AstNode, AstNode),
 }
 
 pub struct AstNode {
@@ -169,6 +170,11 @@ fn display_helper(
         }
         AstNodeKind::Scope(expr) => {
             f.write_fmt(format_args!("{}{}{}\n", padding, marker, "{ }"))?;
+            display_helper(expr, f, &child_padding, true, false)
+        }
+        AstNodeKind::LetDeclaration(identifier, expr) => {
+            write!(f, "{}{} {}\n", padding, marker, "<let declaration>")?;
+            display_helper(identifier, f, &child_padding, false, false)?;
             display_helper(expr, f, &child_padding, true, false)
         }
     }
