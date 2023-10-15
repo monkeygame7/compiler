@@ -8,6 +8,7 @@ use crate::{
     text::TextSpan,
 };
 
+#[derive(Clone)]
 pub struct Diagnostic {
     pub message: String,
     pub span: TextSpan,
@@ -20,7 +21,8 @@ impl Display for Diagnostic {
 }
 
 pub struct DiagnosticBag {
-    messages: RefCell<Vec<Diagnostic>>,
+    // TODO: Expose a way to iterate over diagnostics without making this public
+    pub messages: RefCell<Vec<Diagnostic>>,
 }
 
 impl DiagnosticBag {

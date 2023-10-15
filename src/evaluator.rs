@@ -1,18 +1,19 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
+    rc::Rc,
 };
 
 use crate::{
-    ast::{Ast, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
+    ast::{Ast2, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
     diagnostics::DiagnosticBag,
     text::TextSpan,
 };
 
 pub struct Evaluator<'a> {
-    root: &'a AstNode,
+    ast: &'a Ast2,
     scopes: Vec<HashMap<String, ResultType>>,
-    diagnostics: &'a DiagnosticBag,
+    diagnostics: Rc<DiagnosticBag>,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -51,17 +52,18 @@ impl Debug for ResultType {
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(program: &Ast) -> Evaluator {
+    pub fn new(ast: &'a Ast2, diagnostics: Rc<DiagnosticBag>) -> Evaluator {
         Evaluator {
-            root: &program.root,
+            ast,
             scopes: vec![],
-            diagnostics: &program.diagnostics,
+            diagnostics,
         }
     }
 
     pub fn evaluate(&mut self) -> ResultType {
-        let node = self.root;
-        self.evaluate_node(&node)
+        todo!();
+        // let node = self.root;
+        // self.evaluate_node(&node)
     }
 
     pub fn evaluate_node(&mut self, node: &AstNode) -> ResultType {
@@ -192,15 +194,15 @@ impl<'a> Evaluator<'a> {
 
 #[cfg(test)]
 mod test {
-    use std::vec;
+    use std::{rc::Rc, vec};
 
-    use crate::ast::parser::Parser;
+    use crate::{ast::parser::Parser, text::SourceText};
 
     use super::*;
 
     struct TestCase {
         input: String,
-        actual_input: String,
+        actual_input: SourceText,
         expected_spans: Vec<TextSpan>,
     }
 
@@ -231,22 +233,25 @@ mod test {
             expected_spans.sort();
             TestCase {
                 input: input.to_string(),
-                actual_input,
+                actual_input: SourceText::from(&actual_input).unwrap(),
                 expected_spans,
             }
         }
 
         fn evaluate(&self, expected_result: ResultType) {
-            let tree = Parser::parse(&self.actual_input).unwrap();
-            let mut evaluator = Evaluator::new(&tree);
+            let diagnostics = Rc::new(DiagnosticBag::new());
+            let tree = Parser::parse(&self.actual_input, diagnostics.clone()).unwrap();
+            let mut evaluator = Evaluator::new(&tree, diagnostics.clone());
             let result = evaluator.evaluate();
 
-            if tree.diagnostics.has_errors() {
+            if diagnostics.has_errors() {
                 let mut messages = vec![];
-                let mut errors: Vec<_> = tree
-                    .diagnostics
-                    .into_iter()
+                let mut errors: Vec<_> = diagnostics
+                    .messages
+                    .borrow()
+                    .iter()
                     .map(|dm| {
+                        let dm = dm.clone();
                         messages.push(dm.message);
                         dm.span
                     })
