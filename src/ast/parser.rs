@@ -6,12 +6,12 @@ use crate::{diagnostics::DiagnosticBag, text::SourceText};
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
-    Ast2, AstNode, BinaryOperator, BinaryOperatorKind, ExprId, ItemId, ItemKind, StmtId,
-    UnaryOperator, UnaryOperatorKind,
+    Ast, BinaryOperator, BinaryOperatorKind, ExprId, ItemId, ItemKind, StmtId, UnaryOperator,
+    UnaryOperatorKind,
 };
 
 pub struct Parser<'a> {
-    ast: &'a mut Ast2,
+    ast: &'a mut Ast,
     tokens: Vec<SyntaxToken>,
     current_position: usize,
     pub diagnostics: Rc<DiagnosticBag>,
@@ -19,7 +19,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(
-        ast: &'a mut Ast2,
+        ast: &'a mut Ast,
         tokens: Vec<SyntaxToken>,
         diagnostics: Rc<DiagnosticBag>,
     ) -> Parser<'a> {
@@ -33,7 +33,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(src: &'a SourceText, diagnostics: Rc<DiagnosticBag>) -> Result<Ast2, AsAsciiStrError> {
+    pub fn parse(
+        src: &'a SourceText,
+        diagnostics: Rc<DiagnosticBag>,
+    ) -> Result<Ast, AsAsciiStrError> {
         let mut lexer = Lexer::new(&src);
         let mut tokens = Vec::new();
 
@@ -51,7 +54,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let mut ast = Ast2::new();
+        let mut ast = Ast::new();
         let mut parser = Parser::new(&mut ast, tokens, diagnostics);
 
         parser.parse_ast();
@@ -112,7 +115,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_let_declaration(&mut self, let_token: SyntaxToken, priority: usize) -> AstNode {
+    fn parse_let_declaration(&mut self, let_token: SyntaxToken, priority: usize) -> StmtId {
         todo!();
         // let next = self.next();
         // let identifier_node = match next.kind {

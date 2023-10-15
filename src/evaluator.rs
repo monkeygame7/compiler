@@ -5,13 +5,13 @@ use std::{
 };
 
 use crate::{
-    ast::{Ast2, AstNode, AstNodeKind, BinaryOperatorKind, UnaryOperatorKind},
+    ast::{Ast, BinaryOperatorKind, UnaryOperatorKind},
     diagnostics::DiagnosticBag,
     text::TextSpan,
 };
 
 pub struct Evaluator<'a> {
-    ast: &'a Ast2,
+    ast: &'a Ast,
     scopes: Vec<HashMap<String, ResultType>>,
     diagnostics: Rc<DiagnosticBag>,
 }
@@ -52,7 +52,7 @@ impl Debug for ResultType {
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(ast: &'a Ast2, diagnostics: Rc<DiagnosticBag>) -> Evaluator {
+    pub fn new(ast: &'a Ast, diagnostics: Rc<DiagnosticBag>) -> Evaluator {
         Evaluator {
             ast,
             scopes: vec![],
@@ -66,33 +66,34 @@ impl<'a> Evaluator<'a> {
         // self.evaluate_node(&node)
     }
 
-    pub fn evaluate_node(&mut self, node: &AstNode) -> ResultType {
-        let span = node.span;
-        match node.kind.as_ref() {
-            AstNodeKind::BadNode => self.evaluate_bad_node(span),
-            AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(*i, span),
-            AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(*b, span),
-            AstNodeKind::Identifier(s) => self.evaluate_identifier(&s, span),
-            AstNodeKind::BinaryExpression(left, op, right) => {
-                let left = self.evaluate_node(&left);
-                let right = self.evaluate_node(&right);
-                self.evaluate_binary_expression(left, op.kind, right, op.token.span)
-            }
-            AstNodeKind::UnaryExpression(op, expr) => {
-                let result = self.evaluate_node(&expr);
-                self.evaluate_unary_expression(op.kind, result, op.token.span)
-            }
-            AstNodeKind::Scope(expr) => {
-                self.scopes.push(HashMap::new());
-                let result = self.evaluate_node(&expr);
-                self.scopes.pop();
-                result
-            }
-            AstNodeKind::LetDeclaration(identifier, expr) => {
-                todo!();
-            }
-            AstNodeKind::Statement => todo!(),
-        }
+    pub fn evaluate_node(&mut self) -> ResultType {
+        // let span = node.span;
+        // match node.kind.as_ref() {
+        //     AstNodeKind::BadNode => self.evaluate_bad_node(span),
+        //     AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(*i, span),
+        //     AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(*b, span),
+        //     AstNodeKind::Identifier(s) => self.evaluate_identifier(&s, span),
+        //     AstNodeKind::BinaryExpression(left, op, right) => {
+        //         let left = self.evaluate_node(&left);
+        //         let right = self.evaluate_node(&right);
+        //         self.evaluate_binary_expression(left, op.kind, right, op.token.span)
+        //     }
+        //     AstNodeKind::UnaryExpression(op, expr) => {
+        //         let result = self.evaluate_node(&expr);
+        //         self.evaluate_unary_expression(op.kind, result, op.token.span)
+        //     }
+        //     AstNodeKind::Scope(expr) => {
+        //         self.scopes.push(HashMap::new());
+        //         let result = self.evaluate_node(&expr);
+        //         self.scopes.pop();
+        //         result
+        //     }
+        //     AstNodeKind::LetDeclaration(identifier, expr) => {
+        //         todo!();
+        //     }
+        //     AstNodeKind::Statement => todo!(),
+        // }
+        todo!("probably get rid of this")
     }
 
     fn evaluate_integer(&mut self, value: i32, span: TextSpan) -> ResultType {

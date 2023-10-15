@@ -2,17 +2,13 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::{
-    diagnostics::DiagnosticBag,
-    id::{Idx, IdxVec},
-    idx,
-    text::{SourceText, TextSpan},
-};
+use crate::{id::Idx, id::IdxVec, idx, text::TextSpan};
 
 use self::lexer::SyntaxToken;
 
 pub mod lexer;
 pub mod parser;
+mod visitor;
 
 idx!(ItemId);
 idx!(StmtId);
@@ -20,19 +16,38 @@ idx!(ExprId);
 // TODO: Move to compilation unit
 idx!(VariableId);
 
-pub struct Ast2 {
+#[derive(Debug, Clone, Copy)]
+pub enum Type {
+    Int,
+    Bool,
+    Unresolved,
+}
+
+pub struct Ast {
     statements: IdxVec<StmtId, Stmt>,
     expressions: IdxVec<ExprId, Expr>,
     items: IdxVec<ItemId, Item>,
 }
 
-impl Ast2 {
+impl Ast {
     pub fn new() -> Self {
-        Ast2 {
+        Ast {
             statements: IdxVec::new(),
             expressions: IdxVec::new(),
             items: IdxVec::new(),
         }
+    }
+
+    pub fn query_item(&self, id: ItemId) -> &Item {
+        &self.items[id]
+    }
+
+    pub fn query_stmt(&self, id: StmtId) -> &Stmt {
+        &self.statements[id]
+    }
+
+    pub fn query_expr(&self, id: ExprId) -> &Expr {
+        &self.expressions[id]
     }
 
     fn create_item(&mut self, kind: ItemKind) -> ItemId {
@@ -90,7 +105,7 @@ impl Ast2 {
     }
 
     fn create_variable_expr(&mut self, token: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Variable(IdentifierExpr {
+        self.create_expr(ExprKind::Variable(VariableExpr {
             token,
             variable_id: VariableId::default(),
             typ: Type::Unresolved,
@@ -98,34 +113,106 @@ impl Ast2 {
     }
 }
 
-pub struct Ast {
-    pub src: SourceText,
-    pub root: AstNode,
-    pub diagnostics: DiagnosticBag,
+#[derive(Debug, Clone)]
+pub struct Item {
+    kind: ItemKind,
+    id: ItemId,
 }
 
-pub enum AstNodeKind {
-    BadNode,
-    IntegerLiteral(i32),
-    BooleanLiteral(bool),
-    BinaryExpression(AstNode, BinaryOperator, AstNode),
-    UnaryExpression(UnaryOperator, AstNode),
-    Identifier(String),
-    Scope(AstNode),
-    LetDeclaration(AstNode, AstNode),
-    Statement,
+impl Item {
+    fn new(kind: ItemKind) -> Self {
+        Self {
+            kind,
+            id: ItemId::default(),
+        }
+    }
 }
 
-pub struct AstNode {
-    pub kind: Box<AstNodeKind>,
-    pub span: TextSpan,
+#[derive(Debug, Clone)]
+pub enum ItemKind {
+    Stmt(StmtId),
 }
 
-#[derive(Clone, Copy)]
-pub enum Type {
-    Int,
-    Bool,
-    Unresolved,
+#[derive(Debug, Clone)]
+pub struct Stmt {
+    kind: StmtKind,
+    id: StmtId,
+}
+
+impl Stmt {
+    fn new(kind: StmtKind) -> Self {
+        Self {
+            kind,
+            id: StmtId::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StmtKind {
+    Expr(ExprId),
+    Let(LetStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct LetStmt {
+    pub keyword: SyntaxToken,
+    pub identifier: SyntaxToken,
+    pub expr: ExprId,
+}
+
+#[derive(Debug, Clone)]
+pub struct Expr {
+    kind: ExprKind,
+    id: ExprId,
+    typ: Type,
+}
+
+impl Expr {
+    fn new(kind: ExprKind) -> Self {
+        Self {
+            kind,
+            id: ExprId::default(),
+            typ: Type::Unresolved,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
+    Error(TextSpan),
+    Integer(IntegerExpr),
+    Paren(ParenExpr),
+    Binary(BinaryExpr),
+    Unary(UnaryExpr),
+    Block(BlockExpr),
+    Variable(VariableExpr),
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegerExpr {
+    pub token: SyntaxToken,
+    pub value: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParenExpr {
+    pub open: SyntaxToken,
+    pub expr: ExprId,
+    pub close: SyntaxToken,
+}
+
+#[derive(Debug, Clone)]
+pub struct BinaryExpr {
+    pub left: ExprId,
+    pub operator: BinaryOperator,
+    pub right: ExprId,
+}
+
+#[derive(Debug, Clone)]
+pub struct BinaryOperator {
+    pub kind: BinaryOperatorKind,
+    pub token: SyntaxToken,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -144,11 +231,6 @@ pub enum BinaryOperatorKind {
     LessThanOrEquals,
     GreaterThan,
     GreaterThanOrEquals,
-}
-
-pub struct BinaryOperator {
-    pub kind: BinaryOperatorKind,
-    pub token: SyntaxToken,
 }
 
 impl BinaryOperatorKind {
@@ -170,16 +252,23 @@ impl BinaryOperatorKind {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct UnaryExpr {
+    pub operator: UnaryOperator,
+    pub expr: ExprId,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryOperator {
+    pub kind: UnaryOperatorKind,
+    pub token: SyntaxToken,
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum UnaryOperatorKind {
     Identity,
     Negate,
     LogicalNot,
-}
-
-pub struct UnaryOperator {
-    pub kind: UnaryOperatorKind,
-    pub token: SyntaxToken,
 }
 
 impl UnaryOperatorKind {
@@ -192,104 +281,15 @@ impl UnaryOperatorKind {
     }
 }
 
-pub struct Item {
-    kind: ItemKind,
-    id: ItemId,
-}
-
-impl Item {
-    fn new(kind: ItemKind) -> Self {
-        Self {
-            kind,
-            id: ItemId::default(),
-        }
-    }
-}
-
-pub enum ItemKind {
-    Stmt(StmtId),
-}
-
-pub struct Stmt {
-    kind: StmtKind,
-    id: StmtId,
-}
-
-impl Stmt {
-    fn new(kind: StmtKind) -> Self {
-        Self {
-            kind,
-            id: StmtId::default(),
-        }
-    }
-}
-
-pub enum StmtKind {
-    Expr(ExprId),
-    Let(LetStmt),
-}
-
-pub struct LetStmt {
-    pub keyword: SyntaxToken,
-    pub identifier: SyntaxToken,
-    pub expr: ExprId,
-}
-
-pub struct Expr {
-    kind: ExprKind,
-    id: ExprId,
-    typ: Type,
-}
-
-impl Expr {
-    fn new(kind: ExprKind) -> Self {
-        Self {
-            kind,
-            id: ExprId::default(),
-            typ: Type::Unresolved,
-        }
-    }
-}
-
-pub enum ExprKind {
-    Error(TextSpan),
-    Integer(IntegerExpr),
-    Paren(ParenExpr),
-    Binary(BinaryExpr),
-    Unary(UnaryExpr),
-    Block(BlockExpr),
-    Variable(IdentifierExpr),
-}
-
-pub struct IntegerExpr {
-    pub token: SyntaxToken,
-    pub value: i32,
-}
-
-pub struct ParenExpr {
-    pub open: SyntaxToken,
-    pub expr: ExprId,
-    pub close: SyntaxToken,
-}
-
-pub struct BinaryExpr {
-    pub left: ExprId,
-    pub operator: BinaryOperator,
-    pub right: ExprId,
-}
-
-pub struct UnaryExpr {
-    pub operator: UnaryOperator,
-    pub expr: ExprId,
-}
-
+#[derive(Debug, Clone)]
 pub struct BlockExpr {
     pub open: SyntaxToken,
     pub stmts: Vec<StmtId>,
     pub close: SyntaxToken,
 }
 
-pub struct IdentifierExpr {
+#[derive(Debug, Clone)]
+pub struct VariableExpr {
     pub token: SyntaxToken,
     pub variable_id: VariableId,
     pub typ: Type,
@@ -330,83 +330,77 @@ impl Display for UnaryOperatorKind {
     }
 }
 
-impl Display for AstNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        display_helper(self, f, "", true, true)
-    }
-}
-
-fn display_helper(
-    node: &AstNode,
-    f: &mut std::fmt::Formatter<'_>,
-    padding: &str,
-    is_last: bool,
-    is_root: bool,
-) -> std::fmt::Result {
-    let last_marker = " └──";
-    let middle_marker = " ├──";
-    let marker = if is_root {
-        "───"
-    } else if is_last {
-        last_marker
-    } else {
-        middle_marker
-    };
-    let child_padding = if is_root {
-        "   ".to_owned()
-    } else if is_last {
-        padding.to_owned() + "    "
-    } else {
-        padding.to_owned() + " │  "
-    };
-
-    match node.kind.as_ref() {
-        AstNodeKind::BadNode => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR".red()))
-        }
-        AstNodeKind::IntegerLiteral(i) => f.write_fmt(format_args!(
-            "{}{} {}\n",
-            padding,
-            marker,
-            i.to_string().blue()
-        )),
-        AstNodeKind::BooleanLiteral(b) => f.write_fmt(format_args!(
-            "{}{} {}\n",
-            padding,
-            marker,
-            b.to_string().bright_yellow()
-        )),
-        AstNodeKind::Identifier(s) => {
-            f.write_fmt(format_args!("{}{} {}\n", padding, marker, s.green()))
-        }
-        AstNodeKind::BinaryExpression(l, op, r) => {
-            f.write_fmt(format_args!(
-                "{}{} {}\n",
-                padding,
-                marker,
-                op.kind.to_string().white().on_truecolor(50, 50, 50)
-            ))?;
-            display_helper(&l, f, &child_padding, false, false)?;
-            display_helper(&r, f, &child_padding, true, false)
-        }
-        AstNodeKind::UnaryExpression(op, expr) => {
-            f.write_fmt(format_args!(
-                "{}{} {}\n",
-                padding,
-                marker,
-                op.kind.to_string().white().on_truecolor(50, 50, 50)
-            ))?;
-            display_helper(expr, f, &child_padding, true, false)
-        }
-        AstNodeKind::Scope(expr) => {
-            f.write_fmt(format_args!("{}{}{}\n", padding, marker, "{ }"))?;
-            display_helper(expr, f, &child_padding, true, false)
-        }
-        AstNodeKind::LetDeclaration(identifier, expr) => {
-            write!(f, "{}{} {}\n", padding, marker, "<let declaration>")?;
-            display_helper(identifier, f, &child_padding, false, false)?;
-            display_helper(expr, f, &child_padding, true, false)
-        }
-        AstNodeKind::Statement => todo!(),
-    }
-}
+// fn display_helper(
+//     node: &AstNode,
+//     f: &mut std::fmt::Formatter<'_>,
+//     padding: &str,
+//     is_last: bool,
+//     is_root: bool,
+// ) -> std::fmt::Result {
+//     let last_marker = " └──";
+//     let middle_marker = " ├──";
+//     let marker = if is_root {
+//         "───"
+//     } else if is_last {
+//         last_marker
+//     } else {
+//         middle_marker
+//     };
+//     let child_padding = if is_root {
+//         "   ".to_owned()
+//     } else if is_last {
+//         padding.to_owned() + "    "
+//     } else {
+//         padding.to_owned() + " │  "
+//     };
+//
+//     match node.kind.as_ref() {
+//         AstNodeKind::BadNode => {
+//             f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR".red()))
+//         }
+//         AstNodeKind::IntegerLiteral(i) => f.write_fmt(format_args!(
+//             "{}{} {}\n",
+//             padding,
+//             marker,
+//             i.to_string().blue()
+//         )),
+//         AstNodeKind::BooleanLiteral(b) => f.write_fmt(format_args!(
+//             "{}{} {}\n",
+//             padding,
+//             marker,
+//             b.to_string().bright_yellow()
+//         )),
+//         AstNodeKind::Identifier(s) => {
+//             f.write_fmt(format_args!("{}{} {}\n", padding, marker, s.green()))
+//         }
+//         AstNodeKind::BinaryExpression(l, op, r) => {
+//             f.write_fmt(format_args!(
+//                 "{}{} {}\n",
+//                 padding,
+//                 marker,
+//                 op.kind.to_string().white().on_truecolor(50, 50, 50)
+//             ))?;
+//             display_helper(&l, f, &child_padding, false, false)?;
+//             display_helper(&r, f, &child_padding, true, false)
+//         }
+//         AstNodeKind::UnaryExpression(op, expr) => {
+//             f.write_fmt(format_args!(
+//                 "{}{} {}\n",
+//                 padding,
+//                 marker,
+//                 op.kind.to_string().white().on_truecolor(50, 50, 50)
+//             ))?;
+//             display_helper(expr, f, &child_padding, true, false)
+//         }
+//         AstNodeKind::Scope(expr) => {
+//             f.write_fmt(format_args!("{}{}{}\n", padding, marker, "{ }"))?;
+//             display_helper(expr, f, &child_padding, true, false)
+//         }
+//         AstNodeKind::LetDeclaration(identifier, expr) => {
+//             write!(f, "{}{} {}\n", padding, marker, "<let declaration>")?;
+//             display_helper(identifier, f, &child_padding, false, false)?;
+//             display_helper(expr, f, &child_padding, true, false)
+//         }
+//         AstNodeKind::Statement => todo!(),
+//     }
+// }
