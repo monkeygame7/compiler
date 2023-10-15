@@ -66,3 +66,12 @@ where
         &self.vec[index.get()]
     }
 }
+
+impl<Index, T> std::ops::IndexMut<Index> for IdxVec<Index, T>
+where
+    Index: Idx,
+{
+    fn index_mut(&mut self, index: Index) -> &mut Self::Output {
+        &mut self.vec[index.get()]
+    }
+}

@@ -1,29 +1,32 @@
-use std::fmt::Display;
+use std::rc::Rc;
 
 use ascii::AsAsciiStrError;
 
-use crate::{
-    diagnostics::DiagnosticBag,
-    text::{SourceText, TextSpan},
-};
+use crate::{diagnostics::DiagnosticBag, text::SourceText};
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
-    Ast, AstNode, AstNodeKind, BinaryOperator, BinaryOperatorKind, UnaryOperator,
-    UnaryOperatorKind,
+    Ast, Ast2, AstNode, BinaryOperator, BinaryOperatorKind, ExprId, ItemId, ItemKind, StmtId,
+    UnaryOperator, UnaryOperatorKind,
 };
 
-pub struct Parser {
+pub struct Parser<'a> {
+    ast: &'a mut Ast2,
     tokens: Vec<SyntaxToken>,
     current_position: usize,
-    pub diagnostics: DiagnosticBag,
+    pub diagnostics: Rc<DiagnosticBag>,
 }
 
-impl Parser {
-    fn new(tokens: Vec<SyntaxToken>, diagnostics: DiagnosticBag) -> Parser {
+impl<'a> Parser<'a> {
+    fn new(
+        ast: &'a mut Ast2,
+        tokens: Vec<SyntaxToken>,
+        diagnostics: Rc<DiagnosticBag>,
+    ) -> Parser<'a> {
         assert!(tokens.len() > 0, "Tokens must not be empty");
 
         Parser {
+            ast,
             tokens,
             current_position: 0,
             diagnostics,
@@ -31,7 +34,7 @@ impl Parser {
     }
 
     pub fn parse(text: &str) -> Result<Ast, AsAsciiStrError> {
-        let diagnostics = DiagnosticBag::new();
+        let diagnostics = Rc::new(DiagnosticBag::new());
         let src = SourceText::from(&text)?;
         let mut lexer = Lexer::new(&src);
         let mut tokens = Vec::new();
@@ -50,14 +53,13 @@ impl Parser {
             }
         }
 
-        let mut parser = Parser::new(tokens, diagnostics);
+        let mut ast = Ast2::new();
+        let mut parser = Parser::new(&mut ast, tokens, diagnostics.clone());
 
-        let root = parser.parse_ast();
-        Ok(Ast {
-            src,
-            root,
-            diagnostics: parser.diagnostics,
-        })
+        parser.parse_ast();
+
+        Parser::test_consume(ast);
+        todo!("refactor")
     }
 
     fn current(&mut self) -> &SyntaxToken {
@@ -72,170 +74,165 @@ impl Parser {
         current.clone()
     }
 
-    fn parse_ast(&mut self) -> AstNode {
-        let program = self.parse_expression(0);
-
-        let eof_token = self.next();
-        if !matches!(eof_token.kind, TokenKind::EOF) {
-            self.diagnostics
-                .report_unexpected_token(&eof_token, TokenKind::EOF);
+    fn parse_ast(&mut self) {
+        while self.current().kind != TokenKind::EOF {
+            self.parse_item();
         }
-        program
     }
 
-    fn parse_expression(&mut self, priority: usize) -> AstNode {
+    fn parse_item(&mut self) -> ItemId {
+        let stmt = self.parse_stmt();
+        self.ast.create_item(ItemKind::Stmt(stmt))
+    }
+
+    fn parse_stmt(&mut self) -> StmtId {
+        let id = match self.current().kind {
+            TokenKind::Let => todo!(), //self.parse_let_declaration()
+            _ => self.parse_expr_stmt(),
+        };
+
+        // TODO: consume semicolon
+        id
+    }
+
+    fn parse_expr_stmt(&mut self) -> StmtId {
+        let id = self.parse_expr(0);
+        self.ast.create_expr_stmt(id)
+    }
+
+    fn parse_expr(&mut self, priority: usize) -> ExprId {
         let current = self.current();
         match current.kind {
-            TokenKind::LeftCurly => {
-                let curly = self.next();
-                self.parse_scope(curly)
-            }
-            TokenKind::Let => {
-                let let_token = self.next();
-                self.parse_let_declaration(let_token, priority)
-            }
-            _ => self.parse_binary_expression(priority),
+            // TokenKind::LeftCurly => {
+            //     let curly = self.next();
+            //     self.parse_scope(curly)
+            // }
+            // TokenKind::Let => {
+            //     let let_token = self.next();
+            //     self.parse_let_declaration(let_token, priority)
+            // }
+            _ => self.parse_binary_expr(priority),
         }
     }
 
     fn parse_let_declaration(&mut self, let_token: SyntaxToken, priority: usize) -> AstNode {
-        let next = self.next();
-        let identifier_node = match next.kind {
-            TokenKind::Identifier(s) => self.make_node(AstNodeKind::Identifier(s), next.span),
-            _ => {
-                let span = let_token.span.to(next.span);
-                return self.make_bad_node(next, &"<identifier>", span);
-            }
-        };
-
-        let next = self.next();
-        match next.kind {
-            TokenKind::Equals => (),
-            _ => {
-                let span = let_token.span.to(next.span);
-                return self.make_bad_node(next, &TokenKind::Equals, span);
-            }
-        }
-
-        let expr = self.parse_expression(priority);
-        let span = let_token.span.to(expr.span);
-        self.make_node(AstNodeKind::LetDeclaration(identifier_node, expr), span)
+        todo!();
+        // let next = self.next();
+        // let identifier_node = match next.kind {
+        //     TokenKind::Identifier(s) => self.make_node(AstNodeKind::Identifier(s), next.span),
+        //     _ => {
+        //         let span = let_token.span.to(next.span);
+        //         return self.make_bad_node(next, &"<identifier>", span);
+        //     }
+        // };
+        //
+        // let next = self.next();
+        // match next.kind {
+        //     TokenKind::Equals => (),
+        //     _ => {
+        //         let span = let_token.span.to(next.span);
+        //         return self.make_bad_node(next, &TokenKind::Equals, span);
+        //     }
+        // }
+        //
+        // let expr = self.parse_expression(priority);
+        // let span = let_token.span.to(expr.span);
+        // self.make_node(AstNodeKind::LetDeclaration(identifier_node, expr), span)
     }
 
-    fn parse_unary_expression(&mut self, priority: usize) -> Option<AstNode> {
-        let operator_kind = match self.current().kind {
-            TokenKind::Plus => UnaryOperatorKind::Identity,
-            TokenKind::Dash => UnaryOperatorKind::Negate,
-            TokenKind::Bang => UnaryOperatorKind::LogicalNot,
-            _ => return None,
-        };
-        let operator_token = self.next();
-
-        let operator_prioirty = unary_operator_priority(&operator_token);
-        if operator_prioirty < priority {
-            return None;
-        }
-        let operator = UnaryOperator {
-            kind: operator_kind,
-            span: operator_token.span,
-        };
-
-        let expression = self.parse_expression(operator_prioirty);
-        let span = operator_token.span.to(expression.span);
-        Some(self.make_node(AstNodeKind::UnaryExpression(operator, expression), span))
+    fn parse_unary_expr(&mut self, priority: usize) -> Option<ExprId> {
+        self.parse_unary_operator(priority).map(|op| {
+            self.next();
+            let operand = self.parse_expr(op.kind.priority());
+            self.ast.create_unary_expr(op, operand)
+        })
     }
 
-    fn parse_binary_expression(&mut self, priority: usize) -> AstNode {
+    fn parse_unary_operator(&mut self, priority: usize) -> Option<UnaryOperator> {
+        let kind = match self.current().kind {
+            TokenKind::Plus => Some(UnaryOperatorKind::Identity),
+            TokenKind::Dash => Some(UnaryOperatorKind::Negate),
+            TokenKind::Bang => Some(UnaryOperatorKind::LogicalNot),
+            _ => None,
+        };
+
+        kind.filter(|kind| kind.priority() >= priority)
+            .map(|kind| UnaryOperator {
+                kind,
+                token: self.next(),
+            })
+    }
+
+    fn parse_binary_expr(&mut self, mut priority: usize) -> ExprId {
         let mut left = self
-            .parse_unary_expression(priority)
-            .unwrap_or_else(|| self.parse_primary_expression());
+            .parse_unary_expr(priority)
+            .unwrap_or_else(|| self.parse_primary_expr());
 
-        loop {
-            let operator_kind = match self.current().kind {
-                TokenKind::Plus => BinaryOperatorKind::Add,
-                TokenKind::Dash => BinaryOperatorKind::Subtract,
-                TokenKind::Star => BinaryOperatorKind::Mulitply,
-                TokenKind::Slash => BinaryOperatorKind::Divide,
-                TokenKind::AmpersandAmpersand => BinaryOperatorKind::LogicalAnd,
-                TokenKind::Ampersand => BinaryOperatorKind::BitwiseAnd,
-                TokenKind::PipePipe => BinaryOperatorKind::LogicalOr,
-                TokenKind::Pipe => BinaryOperatorKind::BitwiseOr,
-                TokenKind::EqualsEquals => BinaryOperatorKind::Equals,
-                TokenKind::BangEquals => BinaryOperatorKind::NotEquals,
-                TokenKind::LeftAngleEquals => BinaryOperatorKind::LessThanOrEquals,
-                TokenKind::LeftAngleBracket => BinaryOperatorKind::LessThan,
-                TokenKind::RightAngleEquals => BinaryOperatorKind::GreaterThanOrEquals,
-                TokenKind::RightAngleBracket => BinaryOperatorKind::GreaterThan,
-                _ => break,
-            };
-            let operator_priority = binary_operator_priority(self.current());
-            if operator_priority <= priority {
-                break;
-            }
-            let operator_token = self.next();
-            let operator = BinaryOperator {
-                kind: operator_kind,
-                span: operator_token.span,
-            };
-            let right = self.parse_expression(operator_priority);
-            let span = left.span.to(right.span);
-            left = self.make_node(AstNodeKind::BinaryExpression(left, operator, right), span)
+        while let Some(operator) = self.parse_binary_operator(priority) {
+            priority = operator.kind.priority();
+            let right = self.parse_expr(priority);
+            left = self.ast.create_binary_expr(left, operator, right);
         }
 
         left
     }
 
-    fn parse_primary_expression(&mut self) -> AstNode {
-        let next_token = self.next();
-        let span = next_token.span;
-        match next_token.kind {
-            TokenKind::LeftParenthesis => self.parse_group_expression(next_token),
-            TokenKind::Integer(i) => self.make_node(AstNodeKind::IntegerLiteral(i), span),
-            TokenKind::Boolean(b) => self.make_node(AstNodeKind::BooleanLiteral(b), span),
-            TokenKind::Identifier(s) => self.make_node(AstNodeKind::Identifier(s), span),
-            _ => self.make_bad_node(next_token, &"<primary expression>", span),
-        }
+    fn parse_binary_operator(&mut self, priority: usize) -> Option<BinaryOperator> {
+        let kind = match self.current().kind {
+            TokenKind::Plus => Some(BinaryOperatorKind::Add),
+            TokenKind::Dash => Some(BinaryOperatorKind::Subtract),
+            TokenKind::Star => Some(BinaryOperatorKind::Mulitply),
+            TokenKind::Slash => Some(BinaryOperatorKind::Divide),
+            TokenKind::AmpersandAmpersand => Some(BinaryOperatorKind::LogicalAnd),
+            TokenKind::Ampersand => Some(BinaryOperatorKind::BitwiseAnd),
+            TokenKind::PipePipe => Some(BinaryOperatorKind::LogicalOr),
+            TokenKind::Pipe => Some(BinaryOperatorKind::BitwiseOr),
+            TokenKind::EqualsEquals => Some(BinaryOperatorKind::Equals),
+            TokenKind::BangEquals => Some(BinaryOperatorKind::NotEquals),
+            TokenKind::LeftAngleEquals => Some(BinaryOperatorKind::LessThanOrEquals),
+            TokenKind::LeftAngleBracket => Some(BinaryOperatorKind::LessThan),
+            TokenKind::RightAngleEquals => Some(BinaryOperatorKind::GreaterThanOrEquals),
+            TokenKind::RightAngleBracket => Some(BinaryOperatorKind::GreaterThan),
+            _ => None,
+        };
+
+        kind.filter(|kind| kind.priority() > priority)
+            .map(|kind| BinaryOperator {
+                kind,
+                token: self.next(),
+            })
     }
 
-    fn parse_group_expression(&mut self, open: SyntaxToken) -> AstNode {
-        let expression = self.parse_expression(0);
-        let close = self.next();
-        let span = open.span.to(close.span);
-        match close.kind {
-            TokenKind::RightParenthesis => expression,
-            _ => self.make_bad_node(close, &TokenKind::RightParenthesis, span),
-        }
+    fn parse_primary_expr(&mut self) -> ExprId {
+        let token = self.next();
+        let id = match token.kind {
+            TokenKind::LeftParenthesis => {
+                let open = token;
+                let expr = self.parse_expr(0);
+                let close = self.expect(TokenKind::RightParenthesis);
+                self.ast.create_paren_expr(open, expr, close)
+            }
+            TokenKind::Integer(value) => self.ast.create_integer_expr(value, token),
+            TokenKind::Boolean(value) => {
+                todo!();
+            }
+            TokenKind::Identifier(_) => self.ast.create_variable_expr(token),
+            _ => {
+                self.diagnostics.report_expected_expression(&token);
+                self.ast.create_error_expr(token.span)
+            }
+        };
+
+        id
     }
 
-    fn parse_scope(&mut self, open: SyntaxToken) -> AstNode {
-        let expression = self.parse_expression(0);
-        let close = self.next();
-        let span = open.span.to(close.span);
-        match close.kind {
-            TokenKind::RightCurly => self.make_node(AstNodeKind::Scope(expression), span),
-            _ => self.make_bad_node(close, &TokenKind::RightCurly, span),
+    fn expect(&mut self, expected_kind: TokenKind) -> SyntaxToken {
+        let next = self.next();
+        if next.kind != expected_kind {
+            self.diagnostics
+                .report_unexpected_token(&next, &expected_kind)
         }
-    }
-
-    fn make_node(&mut self, kind: AstNodeKind, span: TextSpan) -> AstNode {
-        AstNode {
-            kind: Box::new(kind),
-            span,
-        }
-    }
-
-    fn make_bad_node(
-        &mut self,
-        next_token: SyntaxToken,
-        expected_kind: &dyn Display,
-        span: TextSpan,
-    ) -> AstNode {
-        self.diagnostics
-            .report_unexpected_token(&next_token, expected_kind);
-        AstNode {
-            kind: Box::new(AstNodeKind::BadNode),
-            span,
-        }
+        next
     }
 }
 
@@ -267,6 +264,8 @@ fn binary_operator_priority(token: &SyntaxToken) -> usize {
 #[cfg(test)]
 mod test {
     use std::fmt::Display;
+
+    use crate::ast::AstNodeKind;
 
     use super::*;
 
@@ -418,7 +417,7 @@ mod test {
             })
     }
 
-    #[test]
+    //#[test]
     fn test_scope() {
         let text = "{1 + 2} - 4".to_string();
         let mut asserter = AssertingIterator::new(text);

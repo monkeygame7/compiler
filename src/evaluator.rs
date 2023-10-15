@@ -74,11 +74,11 @@ impl<'a> Evaluator<'a> {
             AstNodeKind::BinaryExpression(left, op, right) => {
                 let left = self.evaluate_node(&left);
                 let right = self.evaluate_node(&right);
-                self.evaluate_binary_expression(left, op.kind, right, op.span)
+                self.evaluate_binary_expression(left, op.kind, right, op.token.span)
             }
             AstNodeKind::UnaryExpression(op, expr) => {
                 let result = self.evaluate_node(&expr);
-                self.evaluate_unary_expression(op.kind, result, op.span)
+                self.evaluate_unary_expression(op.kind, result, op.token.span)
             }
             AstNodeKind::Scope(expr) => {
                 self.scopes.push(HashMap::new());
@@ -89,6 +89,7 @@ impl<'a> Evaluator<'a> {
             AstNodeKind::LetDeclaration(identifier, expr) => {
                 todo!();
             }
+            AstNodeKind::Statement => todo!(),
         }
     }
 

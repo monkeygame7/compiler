@@ -3,7 +3,10 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::{ast::lexer::SyntaxToken, text::TextSpan};
+use crate::{
+    ast::lexer::{SyntaxToken, TokenKind},
+    text::TextSpan,
+};
 
 pub struct Diagnostic {
     pub message: String,
@@ -40,11 +43,18 @@ impl DiagnosticBag {
         self.messages.borrow_mut().push(diagnostic);
     }
 
-    pub fn report_unexpected_token(&self, given_token: &SyntaxToken, expected_kind: impl Display) {
+    pub fn report_unexpected_token(&self, given: &SyntaxToken, expected: &TokenKind) {
         self.add_message(
-            format!("Expected '{}', but found '{}'", expected_kind, given_token),
-            given_token.span,
+            format!("Expected '{}', but found '{}'", expected, given),
+            given.span,
         );
+    }
+
+    pub fn report_expected_expression(&self, token: &SyntaxToken) {
+        self.add_message(
+            format!("Expected expression, but found '{}'", token),
+            token.span,
+        )
     }
 
     pub fn report_unsupported_binary_operator(

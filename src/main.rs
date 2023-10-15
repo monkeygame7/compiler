@@ -6,6 +6,7 @@ use crate::{ast::parser::Parser, evaluator::Evaluator};
 mod ast;
 mod diagnostics;
 mod evaluator;
+mod id;
 mod scope;
 mod text;
 
