@@ -1,48 +1,43 @@
 use std::{
-    cell::Cell,
+    cell::RefCell,
     fmt::{Debug, Display},
 };
 
 use crate::{ast::lexer::SyntaxToken, text::TextSpan};
 
-pub struct DiagnosticMessage {
+pub struct Diagnostic {
     pub message: String,
     pub span: TextSpan,
 }
 
-impl Display for DiagnosticMessage {
+impl Display for Diagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Err: {}", self.message))
     }
 }
 
 pub struct DiagnosticBag {
-    messages: Cell<Vec<DiagnosticMessage>>,
+    messages: RefCell<Vec<Diagnostic>>,
 }
 
 impl DiagnosticBag {
     pub fn new() -> Self {
         Self {
-            messages: Cell::new(vec![]),
+            messages: RefCell::new(vec![]),
         }
     }
 
     pub fn has_errors(&self) -> bool {
-        let messages = self.messages.take();
-        let result = messages.len() > 0;
-        self.messages.set(messages);
-        result
+        self.messages.borrow().len() > 0
     }
 
-    fn make_diagnostic(&self, message: String, span: TextSpan) -> DiagnosticMessage {
-        DiagnosticMessage { message, span }
+    fn make_diagnostic(&self, message: String, span: TextSpan) -> Diagnostic {
+        Diagnostic { message, span }
     }
 
     fn add_message(&self, message: String, span: TextSpan) {
         let diagnostic = self.make_diagnostic(message, span);
-        let mut messages = self.messages.take();
-        messages.push(diagnostic);
-        self.messages.set(messages);
+        self.messages.borrow_mut().push(diagnostic);
     }
 
     pub fn report_unexpected_token(&self, given_token: &SyntaxToken, expected_kind: impl Display) {
@@ -93,7 +88,7 @@ impl DiagnosticBag {
 }
 
 impl IntoIterator for DiagnosticBag {
-    type Item = DiagnosticMessage;
+    type Item = Diagnostic;
 
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
@@ -104,12 +99,9 @@ impl IntoIterator for DiagnosticBag {
 
 impl Debug for DiagnosticBag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messages = self.messages.take();
-        for message in messages.iter() {
+        for message in self.messages.borrow().iter() {
             f.write_str(&message.message)?;
         }
-
-        self.messages.set(messages);
         Ok(())
     }
 }
