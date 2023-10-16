@@ -77,10 +77,6 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(ResultType::Boolean(bool_expr.value));
     }
 
-    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
-        self.visit_expr(ast, paren_expr.expr);
-    }
-
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
         self.visit_expr(ast, binary_expr.left);
         let left = self.last_result.take().unwrap();
