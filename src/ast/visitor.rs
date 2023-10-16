@@ -2,7 +2,7 @@ use crate::text::TextSpan;
 
 use super::{
     Ast, BinaryExpr, BlockExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, LetStmt, ParenExpr,
-    Stmt, StmtId, UnaryExpr, VariableExpr,
+    Stmt, StmtId, UnaryExpr, VariableExpr, BooleanExpr,
 };
 
 pub trait AstVisitor {
@@ -36,6 +36,7 @@ pub trait AstVisitor {
         match &expr.kind {
             ExprKind::Error(span) => self.visit_error(ast, span, &expr),
             ExprKind::Integer(int_expr) => self.visit_integer_expr(ast, &int_expr, &expr),
+            ExprKind::Boolean(bool_expr) => self.visit_boolean_expr(ast, &bool_expr, &expr),
             ExprKind::Paren(paren_expr) => self.visit_paren_expr(ast, &paren_expr, &expr),
             ExprKind::Binary(binary_expr) => self.visit_binary_expr(ast, &binary_expr, &expr),
             ExprKind::Unary(unary_expr) => self.visit_unary_expr(ast, &unary_expr, &expr),
@@ -49,6 +50,8 @@ pub trait AstVisitor {
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr);
 
     fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr);
+
+    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &BooleanExpr, expr: &Expr);
 
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr);
 

@@ -65,6 +65,10 @@ impl AstVisitor for AstPrinter {
         self.append_item(&int_expr.token.to_string().bright_blue());
     }
 
+    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &super::BooleanExpr, expr: &Expr) {
+        self.append_item(&bool_expr.token.to_string().bright_yellow());
+    }
+
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
         self.append_item("(paren)".truecolor(100, 100, 100));
 
@@ -125,7 +129,7 @@ impl AstVisitor for AstPrinter {
         self.indent();
 
         for (idx, stmt) in block_expr.stmts.iter().enumerate() {
-            self.is_last = idx == block_expr.stmts.len();
+            self.is_last = idx == block_expr.stmts.len() - 1;
             self.visit_stmt(ast, *stmt);
         }
 

@@ -131,14 +131,13 @@ impl<'a> Parser<'a> {
         self.ast.create_block_expr(open_token, stmts, close_token)
     }
 
-    fn parse_binary_expr(&mut self, mut priority: usize) -> ExprId {
+    fn parse_binary_expr(&mut self, priority: usize) -> ExprId {
         let mut left = self
             .parse_unary_expr(priority)
             .unwrap_or_else(|| self.parse_primary_expr());
 
         while let Some(operator) = self.parse_binary_operator(priority) {
-            priority = operator.kind.priority();
-            let right = self.parse_expr(priority);
+            let right = self.parse_expr(operator.kind.priority());
             left = self.ast.create_binary_expr(left, operator, right);
         }
 
@@ -203,9 +202,7 @@ impl<'a> Parser<'a> {
                 self.ast.create_paren_expr(open, expr, close)
             }
             TokenKind::Integer(value) => self.ast.create_integer_expr(value, token),
-            TokenKind::Boolean(value) => {
-                todo!();
-            }
+            TokenKind::Boolean(value) => self.ast.create_boolean_expr(value, token),
             TokenKind::Identifier => self.ast.create_variable_expr(token),
             _ => {
                 self.diagnostics.report_expected_expression(&token);

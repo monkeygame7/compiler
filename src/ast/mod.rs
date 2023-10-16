@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use colored::Colorize;
-
 use crate::{id::Idx, id::IdxVec, idx, text::TextSpan};
 
 use self::{lexer::SyntaxToken, printer::AstPrinter, visitor::AstVisitor};
@@ -145,7 +143,11 @@ impl Ast {
     }
 
     fn create_integer_expr(&mut self, value: i32, token: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Integer(IntegerExpr { value, token }))
+        self.create_expr(ExprKind::Integer(IntegerExpr { token, value }))
+    }
+
+    fn create_boolean_expr(&mut self, value: bool, token: SyntaxToken) -> ExprId {
+        self.create_expr(ExprKind::Boolean(BooleanExpr { token, value }))
     }
 
     fn create_variable_expr(&mut self, token: SyntaxToken) -> ExprId {
@@ -227,6 +229,7 @@ impl Expr {
 pub enum ExprKind {
     Error(TextSpan),
     Integer(IntegerExpr),
+    Boolean(BooleanExpr),
     Paren(ParenExpr),
     Binary(BinaryExpr),
     Unary(UnaryExpr),
@@ -238,6 +241,12 @@ pub enum ExprKind {
 pub struct IntegerExpr {
     pub token: SyntaxToken,
     pub value: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct BooleanExpr {
+    pub token: SyntaxToken,
+    pub value: bool,
 }
 
 #[derive(Debug, Clone)]
