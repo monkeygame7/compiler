@@ -349,37 +349,14 @@ pub struct VariableExpr {
     pub typ: Type,
 }
 
-// todo: print token from BinaryOperator
 impl Display for BinaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self.kind {
-            BinaryOperatorKind::Add => "+",
-            BinaryOperatorKind::Subtract => "-",
-            BinaryOperatorKind::Mulitply => "*",
-            BinaryOperatorKind::Divide => "/",
-            BinaryOperatorKind::LogicalAnd => "&&",
-            BinaryOperatorKind::LogicalOr => "||",
-            BinaryOperatorKind::BitwiseAnd => "&",
-            BinaryOperatorKind::BitwiseOr => "|",
-            BinaryOperatorKind::Equals => "==",
-            BinaryOperatorKind::NotEquals => "!=",
-            BinaryOperatorKind::LessThan => "<",
-            BinaryOperatorKind::LessThanOrEquals => "<=",
-            BinaryOperatorKind::GreaterThan => ">",
-            BinaryOperatorKind::GreaterThanOrEquals => ">=",
-        };
-        f.write_str(s)
+        f.write_str(&self.token.literal)
     }
 }
 
-// todo: print token from UnaryOperator
 impl Display for UnaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self.kind {
-            UnaryOperatorKind::Identity => "+",
-            UnaryOperatorKind::Negate => "-",
-            UnaryOperatorKind::LogicalNot => "!",
-        };
-        f.write_str(s)
+        f.write_str(&self.token.literal)
     }
 }
