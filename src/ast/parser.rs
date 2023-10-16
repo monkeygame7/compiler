@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
 
     fn parse_stmt(&mut self) -> StmtId {
         let id = match self.current().kind {
-            TokenKind::Let => todo!(), //self.parse_let_declaration()
+            TokenKind::Let => self.parse_let_stmt(),
             _ => self.parse_expr_stmt(),
         };
 
@@ -107,37 +107,18 @@ impl<'a> Parser<'a> {
             //     let curly = self.next();
             //     self.parse_scope(curly)
             // }
-            // TokenKind::Let => {
-            //     let let_token = self.next();
-            //     self.parse_let_declaration(let_token, priority)
-            // }
             _ => self.parse_binary_expr(priority),
         }
     }
 
-    fn parse_let_declaration(&mut self, let_token: SyntaxToken, priority: usize) -> StmtId {
-        todo!();
-        // let next = self.next();
-        // let identifier_node = match next.kind {
-        //     TokenKind::Identifier(s) => self.make_node(AstNodeKind::Identifier(s), next.span),
-        //     _ => {
-        //         let span = let_token.span.to(next.span);
-        //         return self.make_bad_node(next, &"<identifier>", span);
-        //     }
-        // };
-        //
-        // let next = self.next();
-        // match next.kind {
-        //     TokenKind::Equals => (),
-        //     _ => {
-        //         let span = let_token.span.to(next.span);
-        //         return self.make_bad_node(next, &TokenKind::Equals, span);
-        //     }
-        // }
-        //
-        // let expr = self.parse_expression(priority);
-        // let span = let_token.span.to(expr.span);
-        // self.make_node(AstNodeKind::LetDeclaration(identifier_node, expr), span)
+    fn parse_let_stmt(&mut self) -> StmtId {
+        let keyword = self.expect(TokenKind::Let);
+        let identifier = self.expect(TokenKind::Identifier);
+        let equals_token = self.expect(TokenKind::Equals);
+        let expr = self.parse_expr(0);
+
+        self.ast
+            .create_let_stmt(keyword, identifier, equals_token, expr)
     }
 
     fn parse_unary_expr(&mut self, priority: usize) -> Option<ExprId> {

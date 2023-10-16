@@ -1,8 +1,8 @@
 use crate::text::TextSpan;
 
 use super::{
-    Ast, BinaryExpr, BlockExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, ParenExpr, StmtId,
-    UnaryExpr, VariableExpr,
+    Ast, BinaryExpr, BlockExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, LetStmt, ParenExpr,
+    Stmt, StmtId, UnaryExpr, VariableExpr,
 };
 
 pub trait AstVisitor {
@@ -16,17 +16,23 @@ pub trait AstVisitor {
     fn visit_stmt(&mut self, ast: &mut Ast, stmt: StmtId) {
         let stmt = ast.query_stmt(stmt).clone();
         match &stmt.kind {
-            super::StmtKind::Expr(expr) => self.visit_expr(ast, *expr),
-            super::StmtKind::Let(let_stmt) => todo!(),
+            super::StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
+            super::StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
         }
     }
 
-    fn visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
-        self.do_visit_expr(ast, expr);
+    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr: ExprId, stmt: &Stmt) {
+        self.visit_expr(ast, expr);
     }
 
-    fn do_visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
+    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt);
+
+    fn visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
         let expr = ast.query_expr(expr).clone();
+        self.do_visit_expr(ast, &expr);
+    }
+
+    fn do_visit_expr(&mut self, ast: &mut Ast, expr: &Expr) {
         match &expr.kind {
             ExprKind::Error(span) => self.visit_error(ast, span, &expr),
             ExprKind::Integer(int_expr) => self.visit_integer_expr(ast, &int_expr, &expr),

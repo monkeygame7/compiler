@@ -7,7 +7,7 @@ use std::{
 use crate::{
     ast::{
         visitor::AstVisitor, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr, Expr, IntegerExpr,
-        ParenExpr, UnaryExpr, UnaryOperatorKind, VariableExpr,
+        LetStmt, ParenExpr, Stmt, UnaryExpr, UnaryOperatorKind, VariableExpr,
     },
     diagnostics::DiagnosticBag,
     text::TextSpan,
@@ -16,10 +16,11 @@ use crate::{
 pub struct Evaluator {
     scopes: Vec<HashMap<String, ResultType>>,
     diagnostics: Rc<DiagnosticBag>,
+    vars: HashMap<String, ResultType>,
     last_result: Option<ResultType>,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
 pub enum ResultType {
     Integer(i32),
     Boolean(bool),
@@ -130,7 +131,16 @@ impl AstVisitor for Evaluator {
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
-        todo!()
+        let value = &self.vars[&variable_expr.token.literal];
+        self.last_result = Some(*value);
+    }
+
+    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
+        let identifier = &let_stmt.identifier.literal;
+        assert!(!self.vars.contains_key(identifier));
+        self.visit_expr(ast, let_stmt.expr);
+        self.vars
+            .insert(identifier.to_string(), self.last_result.take().unwrap());
     }
 }
 
@@ -139,6 +149,7 @@ impl Evaluator {
         Evaluator {
             scopes: vec![],
             diagnostics,
+            vars: HashMap::new(),
             last_result: None,
         }
     }
@@ -146,7 +157,7 @@ impl Evaluator {
     pub fn evaluate(ast: &mut Ast, diagnostics: Rc<DiagnosticBag>) -> ResultType {
         let mut evaluator = Self::new(diagnostics);
         ast.visit(&mut evaluator);
-        evaluator.last_result.take().unwrap()
+        evaluator.last_result.take().unwrap_or(ResultType::Void)
     }
 }
 

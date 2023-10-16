@@ -88,6 +88,21 @@ impl Ast {
         self.create_stmt(StmtKind::Expr(expr))
     }
 
+    fn create_let_stmt(
+        &mut self,
+        keyword: SyntaxToken,
+        identifier: SyntaxToken,
+        equals_token: SyntaxToken,
+        expr: ExprId,
+    ) -> StmtId {
+        self.create_stmt(StmtKind::Let(LetStmt {
+            keyword,
+            identifier,
+            equals_token,
+            expr,
+        }))
+    }
+
     fn create_error_expr(&mut self, span: TextSpan) -> ExprId {
         self.create_expr(ExprKind::Error(span))
     }
@@ -174,6 +189,7 @@ pub enum StmtKind {
 pub struct LetStmt {
     pub keyword: SyntaxToken,
     pub identifier: SyntaxToken,
+    pub equals_token: SyntaxToken,
     pub expr: ExprId,
 }
 

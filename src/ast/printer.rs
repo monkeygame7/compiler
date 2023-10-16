@@ -136,4 +136,19 @@ impl AstVisitor for AstPrinter {
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
         self.append_item(&variable_expr.token.to_string().green());
     }
+
+    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, stmt: &super::Stmt) {
+        self.append_item("(let)".truecolor(100, 100, 100));
+
+        let was_last = self.is_last;
+        self.indent();
+
+        self.is_last = false;
+        self.append_item(&let_stmt.identifier.literal.green());
+        self.is_last = true;
+        self.visit_expr(ast, let_stmt.expr);
+
+        self.is_last = was_last;
+        self.unindent();
+    }
 }
