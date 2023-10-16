@@ -91,13 +91,13 @@ impl<'a> Parser<'a> {
             _ => self.parse_expr_stmt(),
         };
 
-        // TODO: consume semicolon
         id
     }
 
     fn parse_expr_stmt(&mut self) -> StmtId {
         let id = self.parse_expr(0);
         self.ast.create_expr_stmt(id)
+        // TODO: consume semicolon
     }
 
     fn parse_expr(&mut self, priority: usize) -> ExprId {
@@ -142,7 +142,6 @@ impl<'a> Parser<'a> {
 
     fn parse_unary_expr(&mut self, priority: usize) -> Option<ExprId> {
         self.parse_unary_operator(priority).map(|op| {
-            self.next();
             let operand = self.parse_expr(op.kind.priority());
             self.ast.create_unary_expr(op, operand)
         })
@@ -196,7 +195,7 @@ impl<'a> Parser<'a> {
             _ => None,
         };
 
-        kind.filter(|kind| kind.priority() > priority)
+        kind.filter(|kind| kind.priority() >= priority)
             .map(|kind| BinaryOperator {
                 kind,
                 token: self.next(),

@@ -4,11 +4,12 @@ use colored::Colorize;
 
 use crate::{id::Idx, id::IdxVec, idx, text::TextSpan};
 
-use self::lexer::SyntaxToken;
+use self::{lexer::SyntaxToken, printer::AstPrinter, visitor::AstVisitor};
 
 pub mod lexer;
 pub mod parser;
-mod visitor;
+pub mod printer;
+pub mod visitor;
 
 idx!(ItemId);
 idx!(StmtId);
@@ -36,6 +37,18 @@ impl Ast {
             expressions: IdxVec::new(),
             items: IdxVec::new(),
         }
+    }
+
+    pub fn visit(&mut self, visitor: &mut dyn AstVisitor) {
+        for item in self.items.clone().iter() {
+            visitor.visit_item(self, item.id);
+        }
+    }
+
+    pub fn print(&mut self) {
+        let mut printer = AstPrinter::new();
+        self.visit(&mut printer);
+        println!("{}", printer.result);
     }
 
     pub fn query_item(&self, id: ItemId) -> &Item {
@@ -93,7 +106,10 @@ impl Ast {
     }
 
     fn create_unary_expr(&mut self, operator: UnaryOperator, expr: ExprId) -> ExprId {
-        self.create_expr(ExprKind::Unary(UnaryExpr { operator, expr }))
+        self.create_expr(ExprKind::Unary(UnaryExpr {
+            operator,
+            operand: expr,
+        }))
     }
 
     fn create_paren_expr(&mut self, open: SyntaxToken, expr: ExprId, close: SyntaxToken) -> ExprId {
@@ -255,7 +271,7 @@ impl BinaryOperatorKind {
 #[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub operator: UnaryOperator,
-    pub expr: ExprId,
+    pub operand: ExprId,
 }
 
 #[derive(Debug, Clone)]
@@ -296,9 +312,9 @@ pub struct VariableExpr {
 }
 
 // todo: print token from BinaryOperator
-impl Display for BinaryOperatorKind {
+impl Display for BinaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
+        let s = match self.kind {
             BinaryOperatorKind::Add => "+",
             BinaryOperatorKind::Subtract => "-",
             BinaryOperatorKind::Mulitply => "*",
@@ -319,9 +335,9 @@ impl Display for BinaryOperatorKind {
 }
 
 // todo: print token from UnaryOperator
-impl Display for UnaryOperatorKind {
+impl Display for UnaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
+        let s = match self.kind {
             UnaryOperatorKind::Identity => "+",
             UnaryOperatorKind::Negate => "-",
             UnaryOperatorKind::LogicalNot => "!",
@@ -329,78 +345,3 @@ impl Display for UnaryOperatorKind {
         f.write_str(s)
     }
 }
-
-// fn display_helper(
-//     node: &AstNode,
-//     f: &mut std::fmt::Formatter<'_>,
-//     padding: &str,
-//     is_last: bool,
-//     is_root: bool,
-// ) -> std::fmt::Result {
-//     let last_marker = " └──";
-//     let middle_marker = " ├──";
-//     let marker = if is_root {
-//         "───"
-//     } else if is_last {
-//         last_marker
-//     } else {
-//         middle_marker
-//     };
-//     let child_padding = if is_root {
-//         "   ".to_owned()
-//     } else if is_last {
-//         padding.to_owned() + "    "
-//     } else {
-//         padding.to_owned() + " │  "
-//     };
-//
-//     match node.kind.as_ref() {
-//         AstNodeKind::BadNode => {
-//             f.write_fmt(format_args!("{}{} {}\n", padding, marker, "ERROR".red()))
-//         }
-//         AstNodeKind::IntegerLiteral(i) => f.write_fmt(format_args!(
-//             "{}{} {}\n",
-//             padding,
-//             marker,
-//             i.to_string().blue()
-//         )),
-//         AstNodeKind::BooleanLiteral(b) => f.write_fmt(format_args!(
-//             "{}{} {}\n",
-//             padding,
-//             marker,
-//             b.to_string().bright_yellow()
-//         )),
-//         AstNodeKind::Identifier(s) => {
-//             f.write_fmt(format_args!("{}{} {}\n", padding, marker, s.green()))
-//         }
-//         AstNodeKind::BinaryExpression(l, op, r) => {
-//             f.write_fmt(format_args!(
-//                 "{}{} {}\n",
-//                 padding,
-//                 marker,
-//                 op.kind.to_string().white().on_truecolor(50, 50, 50)
-//             ))?;
-//             display_helper(&l, f, &child_padding, false, false)?;
-//             display_helper(&r, f, &child_padding, true, false)
-//         }
-//         AstNodeKind::UnaryExpression(op, expr) => {
-//             f.write_fmt(format_args!(
-//                 "{}{} {}\n",
-//                 padding,
-//                 marker,
-//                 op.kind.to_string().white().on_truecolor(50, 50, 50)
-//             ))?;
-//             display_helper(expr, f, &child_padding, true, false)
-//         }
-//         AstNodeKind::Scope(expr) => {
-//             f.write_fmt(format_args!("{}{}{}\n", padding, marker, "{ }"))?;
-//             display_helper(expr, f, &child_padding, true, false)
-//         }
-//         AstNodeKind::LetDeclaration(identifier, expr) => {
-//             write!(f, "{}{} {}\n", padding, marker, "<let declaration>")?;
-//             display_helper(identifier, f, &child_padding, false, false)?;
-//             display_helper(expr, f, &child_padding, true, false)
-//         }
-//         AstNodeKind::Statement => todo!(),
-//     }
-// }

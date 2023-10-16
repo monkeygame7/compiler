@@ -45,6 +45,10 @@ where
         }
     }
 
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.vec.iter()
+    }
+
     pub fn push(&mut self, value: T) -> Index {
         let new_idx = self.vec.len();
         self.vec.push(value);

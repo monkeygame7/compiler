@@ -22,9 +22,9 @@ fn main() -> io::Result<()> {
         let mut line_buffer = String::new();
 
         if buffer.is_empty() {
-            print!("{}", "» ".green());
+            print!("{}", "» ".bright_green());
         } else {
-            print!("{}", "· ".green());
+            print!("{}", "· ".bright_green());
         }
         io::stdout().flush()?;
         io::stdin().read_line(&mut line_buffer)?;
@@ -46,13 +46,12 @@ fn main() -> io::Result<()> {
 
         let src = SourceText::from(&buffer).unwrap();
         let diagnostics = Rc::new(DiagnosticBag::new());
-        let tree = Parser::parse(&src, diagnostics.clone()).unwrap();
+        let mut tree = Parser::parse(&src, diagnostics.clone()).unwrap();
         if show_tree {
-            todo!("print tree");
+            tree.print();
         }
 
-        let mut evaluator = Evaluator::new(&tree, diagnostics.clone());
-        let result = evaluator.evaluate();
+        let result = Evaluator::evaluate(&mut tree, diagnostics.clone());
         if line_buffer.trim().is_empty() && diagnostics.has_errors() {
             let mut diagnostics = diagnostics
                 .messages

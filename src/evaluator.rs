@@ -5,131 +5,80 @@ use std::{
 };
 
 use crate::{
-    ast::{Ast, BinaryOperatorKind, UnaryOperatorKind},
+    ast::{
+        visitor::AstVisitor, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr, Expr, IntegerExpr,
+        ParenExpr, UnaryExpr, UnaryOperatorKind, VariableExpr,
+    },
     diagnostics::DiagnosticBag,
     text::TextSpan,
 };
 
-pub struct Evaluator<'a> {
-    ast: &'a Ast,
+pub struct Evaluator {
     scopes: Vec<HashMap<String, ResultType>>,
     diagnostics: Rc<DiagnosticBag>,
+    last_result: Option<ResultType>,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum ResultType {
     Integer(i32),
     Boolean(bool),
     Void,
     Undefined,
 }
-use ResultType::*;
 
 impl Display for ResultType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Integer(i) => i.to_string(),
-            Boolean(b) => b.to_string(),
-            Void => "(void)".to_string(),
-            Undefined => "UNDEFINED".to_string(),
-        };
-
-        f.write_str(&s)
+        write!(f, "{:?}", self)
     }
 }
 
-impl Debug for ResultType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Integer(_) => "<int>",
-            Boolean(_) => "<bool>",
-            Void => "<void>",
-            Undefined => "<undefined>",
-        };
+use ResultType::*;
 
-        f.write_str(s)
+impl ResultType {
+    fn to_integer(&self) -> i32 {
+        match self {
+            Integer(i) => *i,
+            _ => panic!("expected int"),
+        }
+    }
+
+    fn to_bool(&self) -> bool {
+        match self {
+            Boolean(b) => *b,
+            _ => panic!("expected bool"),
+        }
+    }
+
+    fn to_void(&self) -> () {
+        match self {
+            Void => (),
+            _ => panic!("expected void"),
+        }
     }
 }
 
-impl<'a> Evaluator<'a> {
-    pub fn new(ast: &'a Ast, diagnostics: Rc<DiagnosticBag>) -> Evaluator {
-        Evaluator {
-            ast,
-            scopes: vec![],
-            diagnostics,
-        }
+impl AstVisitor for Evaluator {
+    fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
+        panic!("Evaluated bad node");
     }
 
-    pub fn evaluate(&mut self) -> ResultType {
-        todo!();
-        // let node = self.root;
-        // self.evaluate_node(&node)
+    fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
+        self.last_result = Some(ResultType::Integer(int_expr.value));
     }
 
-    pub fn evaluate_node(&mut self) -> ResultType {
-        // let span = node.span;
-        // match node.kind.as_ref() {
-        //     AstNodeKind::BadNode => self.evaluate_bad_node(span),
-        //     AstNodeKind::IntegerLiteral(i) => self.evaluate_integer(*i, span),
-        //     AstNodeKind::BooleanLiteral(b) => self.evaluate_boolean(*b, span),
-        //     AstNodeKind::Identifier(s) => self.evaluate_identifier(&s, span),
-        //     AstNodeKind::BinaryExpression(left, op, right) => {
-        //         let left = self.evaluate_node(&left);
-        //         let right = self.evaluate_node(&right);
-        //         self.evaluate_binary_expression(left, op.kind, right, op.token.span)
-        //     }
-        //     AstNodeKind::UnaryExpression(op, expr) => {
-        //         let result = self.evaluate_node(&expr);
-        //         self.evaluate_unary_expression(op.kind, result, op.token.span)
-        //     }
-        //     AstNodeKind::Scope(expr) => {
-        //         self.scopes.push(HashMap::new());
-        //         let result = self.evaluate_node(&expr);
-        //         self.scopes.pop();
-        //         result
-        //     }
-        //     AstNodeKind::LetDeclaration(identifier, expr) => {
-        //         todo!();
-        //     }
-        //     AstNodeKind::Statement => todo!(),
-        // }
-        todo!("probably get rid of this")
+    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
+        self.visit_expr(ast, paren_expr.expr);
     }
 
-    fn evaluate_integer(&mut self, value: i32, span: TextSpan) -> ResultType {
-        Integer(value)
-    }
+    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
+        self.visit_expr(ast, binary_expr.left);
+        let left = self.last_result.take().unwrap();
+        self.visit_expr(ast, binary_expr.right);
+        let right = self.last_result.take().unwrap();
 
-    fn evaluate_boolean(&mut self, value: bool, span: TextSpan) -> ResultType {
-        Boolean(value)
-    }
-
-    fn evaluate_identifier(&mut self, identifier: &String, span: TextSpan) -> ResultType {
-        let value = self
-            .scopes
-            .last()
-            .map(|scope| scope.get(identifier))
-            .flatten();
-
-        match value {
-            Some(result) => result.clone(),
-            None => {
-                self.diagnostics
-                    .report_identifier_not_found(identifier, span);
-                Undefined
-            }
-        }
-    }
-
-    fn evaluate_binary_expression(
-        &mut self,
-        left_result: ResultType,
-        op: BinaryOperatorKind,
-        right_result: ResultType,
-        span: TextSpan,
-    ) -> ResultType {
-        let result = match (&left_result, &right_result) {
-            (Integer(l), Integer(r)) => match op {
+        let result = match (&left, &right) {
+            (Integer(l), Integer(r)) => match binary_expr.operator.kind {
                 BinaryOperatorKind::Add => Integer(l + r),
                 BinaryOperatorKind::Subtract => Integer(l - r),
                 BinaryOperatorKind::Mulitply => Integer(l * r),
@@ -144,7 +93,7 @@ impl<'a> Evaluator<'a> {
                 BinaryOperatorKind::LessThan => Boolean(l < r),
                 _ => Undefined,
             },
-            (Boolean(l), Boolean(r)) => match op {
+            (Boolean(l), Boolean(r)) => match binary_expr.operator.kind {
                 BinaryOperatorKind::LogicalAnd => Boolean(*l && *r),
                 BinaryOperatorKind::LogicalOr => Boolean(*l || *r),
                 BinaryOperatorKind::BitwiseAnd => Boolean(l & r),
@@ -154,42 +103,50 @@ impl<'a> Evaluator<'a> {
             _ => Undefined,
         };
 
-        if matches!(result, Undefined) {
-            self.diagnostics
-                .report_unsupported_binary_operator(left_result, op, right_result, span)
-        }
-        result
+        self.last_result = Some(result);
     }
 
-    fn evaluate_unary_expression(
-        &mut self,
-        op: UnaryOperatorKind,
-        expr_result: ResultType,
-        span: TextSpan,
-    ) -> ResultType {
+    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
+        self.visit_expr(ast, unary_expr.operand);
+        let expr_result = self.last_result.take().unwrap();
         let result = match expr_result {
-            Integer(i) => match op {
+            Integer(i) => match unary_expr.operator.kind {
                 UnaryOperatorKind::Identity => Integer(i),
                 UnaryOperatorKind::Negate => Integer(-i),
                 _ => Undefined,
             },
-            Boolean(b) => match op {
+            Boolean(b) => match unary_expr.operator.kind {
                 UnaryOperatorKind::LogicalNot => Boolean(!b),
                 _ => Undefined,
             },
             _ => Undefined,
         };
 
-        if matches!(result, Undefined) {
-            self.diagnostics
-                .report_unsupported_unary_operator(op, expr_result, span);
-        }
-        result
+        self.last_result = Some(result);
     }
 
-    fn evaluate_bad_node(&mut self, span: TextSpan) -> ResultType {
-        self.diagnostics.report_invalid_expression(span);
-        Undefined
+    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+        todo!()
+    }
+
+    fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
+        todo!()
+    }
+}
+
+impl Evaluator {
+    fn new(diagnostics: Rc<DiagnosticBag>) -> Evaluator {
+        Evaluator {
+            scopes: vec![],
+            diagnostics,
+            last_result: None,
+        }
+    }
+
+    pub fn evaluate(ast: &mut Ast, diagnostics: Rc<DiagnosticBag>) -> ResultType {
+        let mut evaluator = Self::new(diagnostics);
+        ast.visit(&mut evaluator);
+        evaluator.last_result.take().unwrap()
     }
 }
 
@@ -241,9 +198,8 @@ mod test {
 
         fn evaluate(&self, expected_result: ResultType) {
             let diagnostics = Rc::new(DiagnosticBag::new());
-            let tree = Parser::parse(&self.actual_input, diagnostics.clone()).unwrap();
-            let mut evaluator = Evaluator::new(&tree, diagnostics.clone());
-            let result = evaluator.evaluate();
+            let mut tree = Parser::parse(&self.actual_input, diagnostics.clone()).unwrap();
+            let result = Evaluator::evaluate(&mut tree, diagnostics.clone());
 
             if diagnostics.has_errors() {
                 let mut messages = vec![];

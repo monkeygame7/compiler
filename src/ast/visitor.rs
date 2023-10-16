@@ -1,3 +1,5 @@
+use crate::text::TextSpan;
+
 use super::{
     Ast, BinaryExpr, BlockExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, ParenExpr, StmtId,
     UnaryExpr, VariableExpr,
@@ -20,9 +22,13 @@ pub trait AstVisitor {
     }
 
     fn visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
+        self.do_visit_expr(ast, expr);
+    }
+
+    fn do_visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
         let expr = ast.query_expr(expr).clone();
         match &expr.kind {
-            ExprKind::Error(span) => todo!(),
+            ExprKind::Error(span) => self.visit_error(ast, span, &expr),
             ExprKind::Integer(int_expr) => self.visit_integer_expr(ast, &int_expr, &expr),
             ExprKind::Paren(paren_expr) => self.visit_paren_expr(ast, &paren_expr, &expr),
             ExprKind::Binary(binary_expr) => self.visit_binary_expr(ast, &binary_expr, &expr),
@@ -33,6 +39,8 @@ pub trait AstVisitor {
             }
         }
     }
+
+    fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr);
 
     fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr);
 
