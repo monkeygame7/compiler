@@ -126,10 +126,6 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
-        todo!()
-    }
-
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
         let value = &self.vars[&variable_expr.token.literal];
         self.last_result = Some(*value);

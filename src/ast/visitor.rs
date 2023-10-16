@@ -56,7 +56,15 @@ pub trait AstVisitor {
 
     fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr);
 
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr);
+    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+        self.do_visit_block_expr(ast, block_expr, expr);
+    }
+
+    fn do_visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+        for stmt in block_expr.stmts.iter() {
+            self.visit_stmt(ast, *stmt);
+        }
+    }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr);
 }

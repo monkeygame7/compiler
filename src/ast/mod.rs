@@ -107,6 +107,19 @@ impl Ast {
         self.create_expr(ExprKind::Error(span))
     }
 
+    fn create_block_expr(
+        &mut self,
+        open_token: SyntaxToken,
+        stmts: Vec<StmtId>,
+        close_token: SyntaxToken,
+    ) -> ExprId {
+        self.create_expr(ExprKind::Block(BlockExpr {
+            open_token,
+            stmts,
+            close_token,
+        }))
+    }
+
     fn create_binary_expr(
         &mut self,
         left: ExprId,
@@ -315,9 +328,9 @@ impl UnaryOperatorKind {
 
 #[derive(Debug, Clone)]
 pub struct BlockExpr {
-    pub open: SyntaxToken,
+    pub open_token: SyntaxToken,
     pub stmts: Vec<StmtId>,
-    pub close: SyntaxToken,
+    pub close_token: SyntaxToken,
 }
 
 #[derive(Debug, Clone)]

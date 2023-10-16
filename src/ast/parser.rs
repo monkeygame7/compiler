@@ -100,17 +100,6 @@ impl<'a> Parser<'a> {
         // TODO: consume semicolon
     }
 
-    fn parse_expr(&mut self, priority: usize) -> ExprId {
-        let current = self.current();
-        match current.kind {
-            // TokenKind::LeftCurly => {
-            //     let curly = self.next();
-            //     self.parse_scope(curly)
-            // }
-            _ => self.parse_binary_expr(priority),
-        }
-    }
-
     fn parse_let_stmt(&mut self) -> StmtId {
         let keyword = self.expect(TokenKind::Let);
         let identifier = self.expect(TokenKind::Identifier);
@@ -121,26 +110,25 @@ impl<'a> Parser<'a> {
             .create_let_stmt(keyword, identifier, equals_token, expr)
     }
 
-    fn parse_unary_expr(&mut self, priority: usize) -> Option<ExprId> {
-        self.parse_unary_operator(priority).map(|op| {
-            let operand = self.parse_expr(op.kind.priority());
-            self.ast.create_unary_expr(op, operand)
-        })
+    fn parse_expr(&mut self, priority: usize) -> ExprId {
+        let current = self.current();
+        match current.kind {
+            TokenKind::LeftCurly => self.parse_block_expr(),
+            _ => self.parse_binary_expr(priority),
+        }
     }
 
-    fn parse_unary_operator(&mut self, priority: usize) -> Option<UnaryOperator> {
-        let kind = match self.current().kind {
-            TokenKind::Plus => Some(UnaryOperatorKind::Identity),
-            TokenKind::Dash => Some(UnaryOperatorKind::Negate),
-            TokenKind::Bang => Some(UnaryOperatorKind::LogicalNot),
-            _ => None,
-        };
+    fn parse_block_expr(&mut self) -> ExprId {
+        let open_token = self.expect(TokenKind::LeftCurly);
+        let mut stmts = vec![];
+        while self.current().kind != TokenKind::RightCurly && self.current().kind != TokenKind::EOF
+        {
+            let stmt_id = self.parse_stmt();
+            stmts.push(stmt_id);
+        }
 
-        kind.filter(|kind| kind.priority() >= priority)
-            .map(|kind| UnaryOperator {
-                kind,
-                token: self.next(),
-            })
+        let close_token = self.expect(TokenKind::RightCurly);
+        self.ast.create_block_expr(open_token, stmts, close_token)
     }
 
     fn parse_binary_expr(&mut self, mut priority: usize) -> ExprId {
@@ -178,6 +166,28 @@ impl<'a> Parser<'a> {
 
         kind.filter(|kind| kind.priority() >= priority)
             .map(|kind| BinaryOperator {
+                kind,
+                token: self.next(),
+            })
+    }
+
+    fn parse_unary_expr(&mut self, priority: usize) -> Option<ExprId> {
+        self.parse_unary_operator(priority).map(|op| {
+            let operand = self.parse_expr(op.kind.priority());
+            self.ast.create_unary_expr(op, operand)
+        })
+    }
+
+    fn parse_unary_operator(&mut self, priority: usize) -> Option<UnaryOperator> {
+        let kind = match self.current().kind {
+            TokenKind::Plus => Some(UnaryOperatorKind::Identity),
+            TokenKind::Dash => Some(UnaryOperatorKind::Negate),
+            TokenKind::Bang => Some(UnaryOperatorKind::LogicalNot),
+            _ => None,
+        };
+
+        kind.filter(|kind| kind.priority() >= priority)
+            .map(|kind| UnaryOperator {
                 kind,
                 token: self.next(),
             })
