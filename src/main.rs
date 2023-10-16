@@ -46,7 +46,7 @@ fn main() -> io::Result<()> {
 
         let src = SourceText::from(&buffer).unwrap();
         let diagnostics = Rc::new(DiagnosticBag::new());
-        let mut tree = Parser::parse(&src, diagnostics.clone()).unwrap();
+        let mut tree = Parser::parse(&src, diagnostics.clone());
         if show_tree {
             tree.print();
         }

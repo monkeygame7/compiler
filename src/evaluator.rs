@@ -214,7 +214,7 @@ mod test {
 
         fn evaluate(&self, expected_result: ResultType) {
             let diagnostics = Rc::new(DiagnosticBag::new());
-            let mut tree = Parser::parse(&self.actual_input, diagnostics.clone()).unwrap();
+            let mut tree = Parser::parse(&self.actual_input, diagnostics.clone());
             let result = Evaluator::evaluate(&mut tree, diagnostics.clone());
 
             if diagnostics.has_errors() {

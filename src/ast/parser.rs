@@ -1,7 +1,5 @@
 use std::rc::Rc;
 
-use ascii::AsAsciiStrError;
-
 use crate::{diagnostics::DiagnosticBag, text::SourceText};
 
 use super::{
@@ -33,10 +31,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(
-        src: &'a SourceText,
-        diagnostics: Rc<DiagnosticBag>,
-    ) -> Result<Ast, AsAsciiStrError> {
+    pub fn parse(src: &'a SourceText, diagnostics: Rc<DiagnosticBag>) -> Ast {
         let mut lexer = Lexer::new(&src);
         let mut tokens = Vec::new();
 
@@ -59,7 +54,7 @@ impl<'a> Parser<'a> {
 
         parser.parse_ast();
 
-        Ok(ast)
+        ast
     }
 
     fn is_done(&mut self) -> bool {
