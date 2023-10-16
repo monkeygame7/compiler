@@ -42,7 +42,7 @@ impl TextLine {
 }
 
 pub struct SourceText {
-    text: AsciiString,
+    pub text: AsciiString,
     lines: Vec<TextLine>,
 }
 

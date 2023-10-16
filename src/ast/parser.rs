@@ -215,7 +215,7 @@ impl<'a> Parser<'a> {
             TokenKind::Boolean(value) => {
                 todo!();
             }
-            TokenKind::Identifier(_) => self.ast.create_variable_expr(token),
+            TokenKind::Identifier => self.ast.create_variable_expr(token),
             _ => {
                 self.diagnostics.report_expected_expression(&token);
                 self.ast.create_error_expr(token.span)

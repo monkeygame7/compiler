@@ -4,7 +4,8 @@ use ascii::{AsciiChar, AsciiString};
 
 use crate::text::{SourceText, TextSpan};
 
-pub struct Lexer {
+pub struct Lexer<'a> {
+    src: &'a SourceText,
     chars: Vec<AsciiChar>,
     current_position: usize,
 }
@@ -19,7 +20,7 @@ pub enum TokenKind {
     // literals
     Integer(i32),
     Boolean(bool),
-    Identifier(String),
+    Identifier,
     Let,
 
     // int operators
@@ -50,57 +51,24 @@ pub enum TokenKind {
     RightCurly,
 }
 
-impl Display for TokenKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::EOF => "".to_owned(),
-            Self::BadToken(s) => s.to_owned(),
-            Self::WhiteSpace(s) => s.to_owned(),
-            Self::Integer(i) => i.to_string(),
-            Self::Boolean(b) => b.to_string(),
-            Self::Identifier(s) => s.to_owned(),
-            Self::Let => "let".to_owned(),
-            Self::Plus => "+".to_owned(),
-            Self::Dash => "-".to_owned(),
-            Self::Star => "*".to_owned(),
-            Self::Slash => "/".to_owned(),
-            Self::Ampersand => "&".to_owned(),
-            Self::AmpersandAmpersand => "&&".to_owned(),
-            Self::Pipe => "|".to_owned(),
-            Self::PipePipe => "||".to_owned(),
-            Self::Bang => "!".to_owned(),
-            Self::Equals => "=".to_owned(),
-            Self::EqualsEquals => "==".to_owned(),
-            Self::BangEquals => "!=".to_owned(),
-            Self::LeftAngleBracket => "<".to_owned(),
-            Self::RightAngleBracket => ">".to_owned(),
-            Self::LeftAngleEquals => "<=".to_owned(),
-            Self::RightAngleEquals => ">=".to_owned(),
-            Self::LeftParenthesis => "(".to_owned(),
-            Self::RightParenthesis => ")".to_owned(),
-            Self::LeftCurly => "{".to_owned(),
-            Self::RightCurly => "}".to_owned(),
-        };
-        f.write_str(&s)
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct SyntaxToken {
     pub kind: TokenKind,
     pub span: TextSpan,
+    pub literal: String,
 }
 
 impl Display for SyntaxToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
+        f.write_str(&self.literal)
     }
 }
 
-impl Lexer {
-    pub fn new(src: &SourceText) -> Lexer {
+impl<'a> Lexer<'a> {
+    pub fn new(src: &'a SourceText) -> Lexer {
         let chars = src.chars().collect();
         Lexer {
+            src,
             chars,
             current_position: 0,
         }
@@ -171,6 +139,7 @@ impl Lexer {
         SyntaxToken {
             kind,
             span: TextSpan::new(previous_position, self.current_position),
+            literal: self.src.text[previous_position..self.current_position].to_string(),
         }
     }
 
@@ -212,7 +181,7 @@ impl Lexer {
     fn read_keyword_or_identifier(&mut self, text: String) -> TokenKind {
         match text.as_str() {
             "let" => TokenKind::Let,
-            _ => TokenKind::Identifier(text),
+            _ => TokenKind::Identifier,
         }
     }
 
@@ -281,7 +250,7 @@ mod test {
                 let result = &tokens[0];
                 assert_eq!(
                     &result.kind, expected_kind,
-                    "{} did not match {}",
+                    "{} did not match {:?}",
                     text, expected_kind
                 );
                 assert_eq!(result.span, TextSpan::new(0, text.len()), "unexpected span");
@@ -307,13 +276,13 @@ mod test {
                 let t2 = &tokens[1];
                 assert_eq!(
                     t1.kind, expected_kind1,
-                    "{} did not match {} for '{}'",
+                    "{} did not match {:?} for '{}'",
                     text1, expected_kind1, full_text
                 );
                 assert_eq!(t1.span, TextSpan::new(0, text1.len()), "unexpected span");
                 assert_eq!(
                     t2.kind, expected_kind2,
-                    "{} did not match {} for '{}'",
+                    "{} did not match {:?} for '{}'",
                     text2, expected_kind2, full_text
                 );
                 assert_eq!(
@@ -348,7 +317,7 @@ mod test {
                         let t2 = &tokens[2];
                         assert_eq!(
                             &t1.kind, expected_kind1,
-                            "{} did not match {} for '{}'",
+                            "{} did not match {:?} for '{}'",
                             text1, expected_kind1, full_text
                         );
                         assert_eq!(
@@ -374,7 +343,7 @@ mod test {
 
                         assert_eq!(
                             &t2.kind, expected_kind2,
-                            "{} did not match {} for '{}'",
+                            "{} did not match {:?} for '{}'",
                             text2, expected_kind2, full_text
                         );
                         assert_eq!(
@@ -427,8 +396,8 @@ mod test {
             ("123".to_string(), Integer(123)),
             ("true".to_string(), Boolean(true)),
             ("false".to_string(), Boolean(false)),
-            ("a".to_string(), Identifier("a".to_string())),
-            ("foo_bar".to_string(), Identifier("foo_bar".to_string())),
+            ("a".to_string(), Identifier),
+            ("foo_bar".to_string(), Identifier),
         ]
         .into_iter()
         .collect()
@@ -464,11 +433,11 @@ mod test {
         match (t1_kind, t2_kind) {
             (&Integer(_), &Integer(_))
             | (&Boolean(_), &Integer(_))
-            | (&Boolean(_), &Identifier(_))
+            | (&Boolean(_), &Identifier)
             | (&Boolean(_), &Boolean(_))
-            | (&Identifier(_), &Boolean(_))
-            | (&Identifier(_), &Integer(_))
-            | (&Identifier(_), &Identifier(_))
+            | (&Identifier, &Boolean(_))
+            | (&Identifier, &Integer(_))
+            | (&Identifier, &Identifier)
             | (&Ampersand, &Ampersand)
             | (&Ampersand, &AmpersandAmpersand)
             | (&Pipe, &Pipe)

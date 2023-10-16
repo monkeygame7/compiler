@@ -47,7 +47,7 @@ impl DiagnosticBag {
 
     pub fn report_unexpected_token(&self, given: &SyntaxToken, expected: &TokenKind) {
         self.add_message(
-            format!("Expected '{}', but found '{}'", expected, given),
+            format!("Expected '{:?}', but found '{}'", expected, given),
             given.span,
         );
     }
