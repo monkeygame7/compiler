@@ -61,7 +61,7 @@ impl ResultType {
 
 impl AstVisitor for Evaluator {
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
-        panic!("Evaluated bad node");
+        self.last_result = Some(ResultType::Undefined);
     }
 
     fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
@@ -132,7 +132,11 @@ impl AstVisitor for Evaluator {
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
-        let value = &self.vars[&variable_expr.token.literal];
+        let value = &self
+            .vars
+            .get(&variable_expr.token.literal)
+            .cloned()
+            .unwrap_or(ResultType::Undefined);
         self.last_result = Some(*value);
     }
 
@@ -297,23 +301,25 @@ mod test {
             ("1 < 2", true),
             ("1 <= 2", true),
         ];
+        let void_cases = vec!["", "let x = 4"];
         let undefined_cases = vec![
-            "[[]]",
-            "[[$]]",
-            "[(1 + 2[]]",
-            "[-]true",
+            "[$]",
+            "(1 + 2[]",
+            "-true",
             "13 [@]",
-            "4 [&&] 5",
-            "true [+] false",
-            "([[$]] [+] 2) [-] 4",
-            "([[$]]) [+] 4",
-            "[foo] [+] [bar]",
+            "4 && 5",
+            "true + false",
+            "([$] + 2) - 4",
+            "([$]) + 4",
+            "foo + bar",
+            "1 + [let] x [=] 4",
         ];
 
         int_cases
             .into_iter()
             .map(|(s, i)| (s, Integer(i)))
             .chain(bool_cases.into_iter().map(|(s, b)| (s, Boolean(b))))
+            .chain(void_cases.into_iter().map(|s| (s, Void)))
             .chain(undefined_cases.into_iter().map(|s| (s, Undefined)))
             .collect()
     }
