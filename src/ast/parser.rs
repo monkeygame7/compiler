@@ -62,6 +62,10 @@ impl<'a> Parser<'a> {
         Ok(ast)
     }
 
+    fn is_done(&mut self) -> bool {
+        self.current().kind == TokenKind::EOF
+    }
+
     fn current(&mut self) -> &SyntaxToken {
         &self.tokens[self.current_position]
     }
@@ -75,7 +79,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ast(&mut self) {
-        while self.current().kind != TokenKind::EOF {
+        while !self.is_done() {
             self.parse_item();
         }
     }
@@ -121,8 +125,7 @@ impl<'a> Parser<'a> {
     fn parse_block_expr(&mut self) -> ExprId {
         let open_token = self.expect(TokenKind::LeftCurly);
         let mut stmts = vec![];
-        while self.current().kind != TokenKind::RightCurly && self.current().kind != TokenKind::EOF
-        {
+        while self.current().kind != TokenKind::RightCurly && !self.is_done() {
             let stmt_id = self.parse_stmt();
             stmts.push(stmt_id);
         }

@@ -1,8 +1,8 @@
 use crate::text::TextSpan;
 
 use super::{
-    Ast, BinaryExpr, BlockExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, LetStmt, ParenExpr,
-    Stmt, StmtId, UnaryExpr, VariableExpr, BooleanExpr,
+    Ast, BinaryExpr, BlockExpr, BooleanExpr, Expr, ExprId, ExprKind, IntegerExpr, ItemId, LetStmt,
+    ParenExpr, Stmt, StmtId, UnaryExpr, VariableExpr,
 };
 
 pub trait AstVisitor {

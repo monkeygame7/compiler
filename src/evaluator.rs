@@ -68,7 +68,12 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(ResultType::Integer(int_expr.value));
     }
 
-    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &crate::ast::BooleanExpr, expr: &Expr) {
+    fn visit_boolean_expr(
+        &mut self,
+        ast: &mut Ast,
+        bool_expr: &crate::ast::BooleanExpr,
+        expr: &Expr,
+    ) {
         self.last_result = Some(ResultType::Boolean(bool_expr.value));
     }
 

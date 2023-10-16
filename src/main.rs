@@ -75,7 +75,10 @@ fn main() -> io::Result<()> {
             println!();
             buffer.clear()
         } else if !diagnostics.has_errors() {
-            println!("\n{}", result.to_string().purple());
+            match result {
+                evaluator::ResultType::Void => println!(""),
+                _ => println!("\n{}", result.to_string().purple()),
+            }
             buffer.clear();
         }
     }
