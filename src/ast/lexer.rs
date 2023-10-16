@@ -174,12 +174,6 @@ impl<'a> Lexer<'a> {
         match literal_string.as_str() {
             "true" => TokenKind::Boolean(true),
             "false" => TokenKind::Boolean(false),
-            _ => self.read_keyword_or_identifier(literal_string),
-        }
-    }
-
-    fn read_keyword_or_identifier(&mut self, text: String) -> TokenKind {
-        match text.as_str() {
             "let" => TokenKind::Let,
             _ => TokenKind::Identifier,
         }
