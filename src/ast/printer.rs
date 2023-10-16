@@ -3,8 +3,8 @@ use std::fmt::Display;
 use colored::Colorize;
 
 use super::{
-    visitor::AstVisitor, Ast, BinaryExpr, BlockExpr, Expr, IntegerExpr, ParenExpr, UnaryExpr,
-    VariableExpr,
+    lexer::SyntaxToken, visitor::AstVisitor, Ast, BinaryExpr, BlockExpr, Expr, IntegerExpr,
+    ParenExpr, UnaryExpr, VariableExpr,
 };
 
 pub struct AstPrinter {
@@ -54,6 +54,22 @@ impl AstPrinter {
             " ├─"
         }
     }
+
+    fn append_keyword(&mut self, token: &SyntaxToken) {
+        self.append_item(format!("<{}>", token.literal).cyan());
+    }
+
+    fn append_operator(&mut self, token: &SyntaxToken) {
+        self.append_item(token.literal.black().on_truecolor(100, 100, 100));
+    }
+
+    fn append_structural(&mut self, label: &str) {
+        self.append_item(
+            format!("({})", label)
+                .truecolor(60, 60, 60)
+                .on_truecolor(30, 30, 30),
+        );
+    }
 }
 
 impl AstVisitor for AstPrinter {
@@ -70,7 +86,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
-        self.append_item("(paren)".truecolor(100, 100, 100));
+        self.append_structural("paren");
 
         let was_last = self.is_last;
         self.indent();
@@ -83,13 +99,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
-        self.append_item(
-            binary_expr
-                .operator
-                .to_string()
-                .black()
-                .on_truecolor(50, 50, 50),
-        );
+        self.append_operator(&binary_expr.operator.token);
 
         let was_last = self.is_last;
         self.indent();
@@ -104,13 +114,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
-        self.append_item(
-            unary_expr
-                .operator
-                .to_string()
-                .black()
-                .on_truecolor(50, 50, 50),
-        );
+        self.append_operator(&unary_expr.operator.token);
 
         let was_last = self.is_last;
         self.indent();
@@ -123,7 +127,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
-        self.append_item("(block)".truecolor(100, 100, 100));
+        self.append_structural("block");
 
         let was_last = self.is_last;
         self.indent();
@@ -142,7 +146,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, stmt: &super::Stmt) {
-        self.append_item("(let)".truecolor(100, 100, 100));
+        self.append_keyword(&let_stmt.identifier);
 
         let was_last = self.is_last;
         self.indent();
