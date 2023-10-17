@@ -158,6 +158,7 @@ impl<'a> Parser<'a> {
             TokenKind::LeftAngleBracket => Some(BinaryOperatorKind::LessThan),
             TokenKind::RightAngleEquals => Some(BinaryOperatorKind::GreaterThanOrEquals),
             TokenKind::RightAngleBracket => Some(BinaryOperatorKind::GreaterThan),
+            TokenKind::Equals => Some(BinaryOperatorKind::Assign),
             _ => None,
         };
 

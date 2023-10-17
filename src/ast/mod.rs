@@ -96,6 +96,7 @@ impl Ast {
         self.create_stmt(StmtKind::Let(LetStmt {
             keyword,
             identifier,
+            variable: VariableId::default(),
             equals_token,
             expr,
         }))
@@ -204,15 +205,16 @@ pub enum StmtKind {
 pub struct LetStmt {
     pub keyword: SyntaxToken,
     pub identifier: SyntaxToken,
+    pub variable: VariableId,
     pub equals_token: SyntaxToken,
     pub expr: ExprId,
 }
 
 #[derive(Debug, Clone)]
 pub struct Expr {
-    kind: ExprKind,
-    id: ExprId,
-    typ: Type,
+    pub kind: ExprKind,
+    pub id: ExprId,
+    pub typ: Type,
 }
 
 impl Expr {
@@ -285,6 +287,7 @@ pub enum BinaryOperatorKind {
     LessThanOrEquals,
     GreaterThan,
     GreaterThanOrEquals,
+    Assign,
 }
 
 impl BinaryOperatorKind {
@@ -302,6 +305,7 @@ impl BinaryOperatorKind {
             BinaryOperatorKind::BitwiseOr => 5,
             BinaryOperatorKind::LogicalAnd => 4,
             BinaryOperatorKind::LogicalOr => 3,
+            BinaryOperatorKind::Assign => 1,
         }
     }
 }

@@ -146,7 +146,7 @@ impl AstVisitor for AstPrinter {
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, stmt: &super::Stmt) {
-        self.append_keyword(&let_stmt.identifier);
+        self.append_keyword(&let_stmt.keyword);
 
         let was_last = self.is_last;
         self.indent();

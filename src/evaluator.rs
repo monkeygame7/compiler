@@ -6,8 +6,9 @@ use std::{
 
 use crate::{
     ast::{
-        visitor::AstVisitor, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr, Expr, IntegerExpr,
-        LetStmt, ParenExpr, Stmt, UnaryExpr, UnaryOperatorKind, VariableExpr,
+        visitor::AstVisitor, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr, Expr, ExprId,
+        ExprKind, IntegerExpr, LetStmt, ParenExpr, Stmt, UnaryExpr, UnaryOperatorKind,
+        VariableExpr,
     },
     diagnostics::DiagnosticBag,
     text::TextSpan,
@@ -97,6 +98,7 @@ impl AstVisitor for Evaluator {
                 BinaryOperatorKind::GreaterThan => Boolean(l > r),
                 BinaryOperatorKind::LessThanOrEquals => Boolean(l <= r),
                 BinaryOperatorKind::LessThan => Boolean(l < r),
+                BinaryOperatorKind::Assign => self.assign_var(binary_expr.left, right, ast),
                 _ => Undefined,
             },
             (Boolean(l), Boolean(r)) => match binary_expr.operator.kind {
@@ -104,6 +106,7 @@ impl AstVisitor for Evaluator {
                 BinaryOperatorKind::LogicalOr => Boolean(*l || *r),
                 BinaryOperatorKind::BitwiseAnd => Boolean(l & r),
                 BinaryOperatorKind::BitwiseOr => Boolean(l | r),
+                BinaryOperatorKind::Assign => self.assign_var(binary_expr.left, right, ast),
                 _ => Undefined,
             },
             _ => Undefined,
@@ -132,11 +135,8 @@ impl AstVisitor for Evaluator {
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
-        let value = &self
-            .vars
-            .get(&variable_expr.token.literal)
-            .cloned()
-            .unwrap_or(ResultType::Undefined);
+        let identifier = &variable_expr.token.literal;
+        let value = &self.vars.get(identifier).cloned().unwrap_or(Undefined);
         self.last_result = Some(*value);
     }
 
@@ -163,6 +163,19 @@ impl Evaluator {
         let mut evaluator = Self::new(diagnostics);
         ast.visit(&mut evaluator);
         evaluator.last_result.take().unwrap_or(ResultType::Void)
+    }
+
+    fn assign_var(&mut self, left: ExprId, right_result: ResultType, ast: &mut Ast) -> ResultType {
+        let expr = ast.query_expr(left);
+        match &expr.kind {
+            ExprKind::Variable(id) => {
+                self.vars
+                    .insert(id.token.literal.clone(), right_result)
+                    .unwrap();
+                right_result
+            }
+            _ => panic!("invalid lvalue"),
+        }
     }
 }
 
@@ -260,6 +273,22 @@ mod test {
             .for_each(|(input, expected)| TestCase::run(input, expected))
     }
 
+    #[test]
+    fn test_multiline() {
+        let input = r#"
+        {
+            let x = 5
+            let y = 10
+            let z = x + y
+            x = x * 2
+            y = x + y
+            y + z
+        }
+            "#;
+        let expected = Integer(35);
+        TestCase::run(input, expected);
+    }
+
     fn test_cases() -> Vec<(&'static str, ResultType)> {
         let int_cases = vec![
             ("1", 1),
@@ -274,6 +303,8 @@ mod test {
             ("123 & 0", 0),
             ("123 | 0", 123),
             ("123 | -1", -1),
+            ("let x = 4 x = x = x = x + 5", 9),
+            ("let x = 4 x = x = x + 5", 9),
         ];
         let bool_cases = vec![
             ("true", true),
@@ -312,7 +343,7 @@ mod test {
             "([$] + 2) - 4",
             "([$]) + 4",
             "foo + bar",
-            "1 + [let] x [=] 4",
+            "1 + [let] x = 4",
         ];
 
         int_cases
