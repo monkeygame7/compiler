@@ -57,12 +57,21 @@ impl<'a> Parser<'a> {
         ast
     }
 
-    fn is_done(&mut self) -> bool {
+    fn is_done(&self) -> bool {
         self.current().kind == TokenKind::EOF
     }
 
-    fn current(&mut self) -> &SyntaxToken {
-        &self.tokens[self.current_position]
+    fn current(&self) -> &SyntaxToken {
+        self.peek(0)
+    }
+
+    fn peek(&self, offset: usize) -> &SyntaxToken {
+        let idx = self.current_position + offset;
+        if idx >= self.tokens.len() {
+            self.tokens.last().unwrap()
+        } else {
+            &self.tokens[idx]
+        }
     }
 
     fn next(&mut self) -> SyntaxToken {
@@ -110,11 +119,21 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self, priority: usize) -> ExprId {
-        let current = self.current();
-        match current.kind {
-            TokenKind::LeftCurly => self.parse_block_expr(),
+        let current_kind = &self.current().kind;
+        let next_kind = &self.peek(1).kind;
+        match (current_kind, next_kind) {
+            (TokenKind::LeftCurly, _) => self.parse_block_expr(),
+            (TokenKind::Identifier, TokenKind::Equals) => self.parse_assign_expr(),
             _ => self.parse_binary_expr(priority),
         }
+    }
+
+    fn parse_assign_expr(&mut self) -> ExprId {
+        let lhs = self.expect(TokenKind::Identifier);
+        let equals = self.expect(TokenKind::Equals);
+        let rhs = self.parse_expr(0);
+
+        self.ast.create_assign_expr(lhs, equals, rhs)
     }
 
     fn parse_block_expr(&mut self) -> ExprId {
@@ -158,7 +177,6 @@ impl<'a> Parser<'a> {
             TokenKind::LeftAngleBracket => Some(BinaryOperatorKind::LessThan),
             TokenKind::RightAngleEquals => Some(BinaryOperatorKind::GreaterThanOrEquals),
             TokenKind::RightAngleBracket => Some(BinaryOperatorKind::GreaterThan),
-            TokenKind::Equals => Some(BinaryOperatorKind::Assign),
             _ => None,
         };
 
@@ -344,6 +362,15 @@ mod test {
         ) {
             self.nodes
                 .push(Matcher::Ident(variable_expr.token.literal.clone()));
+        }
+
+        fn visit_assign_expr(
+            &mut self,
+            ast: &mut Ast,
+            assign_expr: &crate::ast::AssignExpr,
+            expr: &Expr,
+        ) {
+            todo!()
         }
     }
 

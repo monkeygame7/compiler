@@ -139,6 +139,15 @@ impl Ast {
         }))
     }
 
+    fn create_assign_expr(&mut self, lhs: SyntaxToken, equals: SyntaxToken, rhs: ExprId) -> ExprId {
+        self.create_expr(ExprKind::Assign(AssignExpr {
+            identifier: lhs,
+            equals,
+            rhs,
+            variable: VariableId::default(),
+        }))
+    }
+
     fn create_paren_expr(&mut self, open: SyntaxToken, expr: ExprId, close: SyntaxToken) -> ExprId {
         self.create_expr(ExprKind::Paren(ParenExpr { open, expr, close }))
     }
@@ -233,6 +242,7 @@ pub enum ExprKind {
     Integer(IntegerExpr),
     Boolean(BooleanExpr),
     Paren(ParenExpr),
+    Assign(AssignExpr),
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Block(BlockExpr),
@@ -256,6 +266,14 @@ pub struct ParenExpr {
     pub open: SyntaxToken,
     pub expr: ExprId,
     pub close: SyntaxToken,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssignExpr {
+    pub identifier: SyntaxToken,
+    pub equals: SyntaxToken,
+    pub rhs: ExprId,
+    pub variable: VariableId,
 }
 
 #[derive(Debug, Clone)]
@@ -287,7 +305,6 @@ pub enum BinaryOperatorKind {
     LessThanOrEquals,
     GreaterThan,
     GreaterThanOrEquals,
-    Assign,
 }
 
 impl BinaryOperatorKind {
@@ -305,7 +322,6 @@ impl BinaryOperatorKind {
             BinaryOperatorKind::BitwiseOr => 5,
             BinaryOperatorKind::LogicalAnd => 4,
             BinaryOperatorKind::LogicalOr => 3,
-            BinaryOperatorKind::Assign => 1,
         }
     }
 }

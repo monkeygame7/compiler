@@ -59,8 +59,8 @@ impl AstPrinter {
         self.append_item(format!("<{}>", token.literal).cyan());
     }
 
-    fn append_operator(&mut self, token: &SyntaxToken) {
-        self.append_item(token.literal.black().on_truecolor(100, 100, 100));
+    fn append_operator(&mut self, token: impl Display) {
+        self.append_item(token.to_string().black().on_truecolor(100, 100, 100));
     }
 
     fn append_structural(&mut self, label: &str) {
@@ -83,6 +83,21 @@ impl AstVisitor for AstPrinter {
 
     fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &super::BooleanExpr, expr: &Expr) {
         self.append_item(&bool_expr.token.to_string().bright_yellow());
+    }
+
+    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &super::AssignExpr, expr: &Expr) {
+        self.append_operator("=");
+
+        let was_last = self.is_last;
+        self.indent();
+
+        self.is_last = false;
+        self.append_item(assign_expr.identifier.to_string().green());
+        self.is_last = true;
+        self.visit_expr(ast, assign_expr.rhs);
+
+        self.is_last = was_last;
+        self.unindent();
     }
 
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {

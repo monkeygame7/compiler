@@ -78,6 +78,18 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(ResultType::Boolean(bool_expr.value));
     }
 
+    fn visit_assign_expr(
+        &mut self,
+        ast: &mut Ast,
+        assign_expr: &crate::ast::AssignExpr,
+        expr: &Expr,
+    ) {
+        self.visit_expr(ast, assign_expr.rhs);
+        let value = self.last_result.unwrap();
+        self.assign_var(&assign_expr.identifier.literal, value);
+        self.last_result = Some(value)
+    }
+
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
         self.visit_expr(ast, binary_expr.left);
         let left = self.last_result.take().unwrap();
@@ -98,7 +110,6 @@ impl AstVisitor for Evaluator {
                 BinaryOperatorKind::GreaterThan => Boolean(l > r),
                 BinaryOperatorKind::LessThanOrEquals => Boolean(l <= r),
                 BinaryOperatorKind::LessThan => Boolean(l < r),
-                BinaryOperatorKind::Assign => self.assign_var(binary_expr.left, right, ast),
                 _ => Undefined,
             },
             (Boolean(l), Boolean(r)) => match binary_expr.operator.kind {
@@ -106,7 +117,6 @@ impl AstVisitor for Evaluator {
                 BinaryOperatorKind::LogicalOr => Boolean(*l || *r),
                 BinaryOperatorKind::BitwiseAnd => Boolean(l & r),
                 BinaryOperatorKind::BitwiseOr => Boolean(l | r),
-                BinaryOperatorKind::Assign => self.assign_var(binary_expr.left, right, ast),
                 _ => Undefined,
             },
             _ => Undefined,
@@ -165,17 +175,8 @@ impl Evaluator {
         evaluator.last_result.take().unwrap_or(ResultType::Void)
     }
 
-    fn assign_var(&mut self, left: ExprId, right_result: ResultType, ast: &mut Ast) -> ResultType {
-        let expr = ast.query_expr(left);
-        match &expr.kind {
-            ExprKind::Variable(id) => {
-                self.vars
-                    .insert(id.token.literal.clone(), right_result)
-                    .unwrap();
-                right_result
-            }
-            _ => panic!("invalid lvalue"),
-        }
+    fn assign_var(&mut self, identifier: &str, right_result: ResultType) {
+        self.vars.insert(identifier.to_string(), right_result);
     }
 }
 
