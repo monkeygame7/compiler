@@ -13,7 +13,7 @@ idx!(ItemId);
 idx!(StmtId);
 idx!(ExprId);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
     Int,
     Bool,
@@ -55,6 +55,10 @@ impl Ast {
         &self.statements[id]
     }
 
+    pub fn query_stmt_mut(&mut self, id: StmtId) -> &mut Stmt {
+        &mut self.statements[id]
+    }
+
     pub fn query_expr(&self, id: ExprId) -> &Expr {
         &self.expressions[id]
     }
@@ -66,6 +70,14 @@ impl Ast {
     pub fn set_type(&mut self, id: ExprId, typ: Type) {
         let expr = self.query_expr_mut(id);
         expr.typ = typ;
+    }
+
+    pub fn set_variable_for_stmt(&mut self, var: VariableId, stmt: StmtId) {
+        let stmt = self.query_stmt_mut(stmt);
+        match &mut stmt.kind {
+            StmtKind::Let(let_stmt) => let_stmt.variable = var,
+            _ => unreachable!("only let statments have variables"),
+        }
     }
 
     fn create_item(&mut self, kind: ItemKind) -> ItemId {
@@ -105,7 +117,7 @@ impl Ast {
             identifier,
             variable: VariableId::default(),
             equals_token,
-            expr,
+            initial: expr,
         }))
     }
 
@@ -198,8 +210,8 @@ pub enum ItemKind {
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
-    kind: StmtKind,
-    id: StmtId,
+    pub kind: StmtKind,
+    pub id: StmtId,
 }
 
 impl Stmt {
@@ -223,7 +235,7 @@ pub struct LetStmt {
     pub identifier: SyntaxToken,
     pub variable: VariableId,
     pub equals_token: SyntaxToken,
-    pub expr: ExprId,
+    pub initial: ExprId,
 }
 
 #[derive(Debug, Clone)]

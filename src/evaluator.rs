@@ -130,7 +130,7 @@ impl AstVisitor for Evaluator {
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
         let identifier = &let_stmt.identifier.literal;
         assert!(!self.vars.contains_key(identifier));
-        self.visit_expr(ast, let_stmt.expr);
+        self.visit_expr(ast, let_stmt.initial);
         self.vars
             .insert(identifier.to_string(), self.last_result.take().unwrap());
     }

@@ -169,7 +169,7 @@ impl AstVisitor for AstPrinter {
         self.is_last = false;
         self.append_item(&let_stmt.identifier.literal.green());
         self.is_last = true;
-        self.visit_expr(ast, let_stmt.expr);
+        self.visit_expr(ast, let_stmt.initial);
 
         self.is_last = was_last;
         self.unindent();

@@ -1,4 +1,5 @@
 use crate::{
+    ast::{lexer::SyntaxToken, Type},
     id::{Idx, IdxVec},
     idx,
 };
@@ -8,12 +9,15 @@ idx!(VariableId);
 
 pub struct Function {}
 
-pub struct VariableSymbol {}
+pub struct VariableSymbol {
+    pub typ: Type,
+    pub identifier: String,
+}
 
 pub struct GlobalScope {
-    functions: IdxVec<FunctionId, Function>,
-    variables: IdxVec<VariableId, VariableSymbol>,
-    globals: Vec<VariableId>,
+    pub functions: IdxVec<FunctionId, Function>,
+    pub variables: IdxVec<VariableId, VariableSymbol>,
+    pub globals: Vec<VariableId>,
 }
 
 impl GlobalScope {
@@ -42,7 +46,7 @@ impl LocalScope {
 
 pub struct Scopes {
     local_scopes: Vec<LocalScope>,
-    global_scope: GlobalScope,
+    pub global_scope: GlobalScope,
 }
 
 impl Scopes {
@@ -51,5 +55,17 @@ impl Scopes {
             local_scopes: Vec::new(),
             global_scope: GlobalScope::new(),
         }
+    }
+
+    pub fn lookup_variable(&self, identifier: &str) -> Option<VariableId> {
+        todo!();
+    }
+
+    pub fn lookup_type(&self, id: VariableId) -> Type {
+        self.global_scope.variables[id].typ
+    }
+
+    pub fn declare_variable(&self, identifier: &SyntaxToken, typ: Type) -> VariableId {
+        todo!()
     }
 }

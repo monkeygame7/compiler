@@ -328,7 +328,7 @@ mod test {
         fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
             self.nodes
                 .push(Matcher::LetDecl(let_stmt.identifier.literal.clone()));
-            self.visit_expr(ast, let_stmt.expr);
+            self.visit_expr(ast, let_stmt.initial);
         }
 
         fn visit_error(&mut self, ast: &mut Ast, span: &crate::text::TextSpan, expr: &Expr) {
