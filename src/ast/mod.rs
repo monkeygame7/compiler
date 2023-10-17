@@ -59,6 +59,15 @@ impl Ast {
         &self.expressions[id]
     }
 
+    pub fn query_expr_mut(&mut self, id: ExprId) -> &mut Expr {
+        &mut self.expressions[id]
+    }
+
+    pub fn set_type(&mut self, id: ExprId, typ: Type) {
+        let expr = self.query_expr_mut(id);
+        expr.typ = typ;
+    }
+
     fn create_item(&mut self, kind: ItemKind) -> ItemId {
         let item = Item::new(kind);
         let id = self.items.push(item);
