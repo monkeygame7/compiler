@@ -37,29 +37,6 @@ impl Display for ResultType {
 
 use ResultType::*;
 
-impl ResultType {
-    fn to_integer(&self) -> i32 {
-        match self {
-            Integer(i) => *i,
-            _ => panic!("expected int"),
-        }
-    }
-
-    fn to_bool(&self) -> bool {
-        match self {
-            Boolean(b) => *b,
-            _ => panic!("expected bool"),
-        }
-    }
-
-    fn to_void(&self) -> () {
-        match self {
-            Void => (),
-            _ => panic!("expected void"),
-        }
-    }
-}
-
 impl AstVisitor for Evaluator {
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
         self.last_result = Some(ResultType::Undefined);
