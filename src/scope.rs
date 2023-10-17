@@ -1,48 +1,55 @@
-use std::collections::HashMap;
+use crate::{
+    id::{Idx, IdxVec},
+    idx,
+};
 
-use crate::ast::Type;
+idx!(FunctionId);
+idx!(VariableId);
 
-#[derive(Clone)]
-pub struct VariableSymbol {
-    identifier: String,
-    type_: Type,
+pub struct Function {}
+
+pub struct VariableSymbol {}
+
+pub struct GlobalScope {
+    functions: IdxVec<FunctionId, Function>,
+    variables: IdxVec<VariableId, VariableSymbol>,
+    globals: Vec<VariableId>,
 }
 
-impl VariableSymbol {
-    fn new(identifier: String, type_: Type) -> Self {
-        Self { identifier, type_ }
-    }
-}
-
-pub struct Scope<'a> {
-    vars: HashMap<String, VariableSymbol>,
-    parent: Option<&'a Scope<'a>>,
-}
-
-impl<'a> Scope<'a> {
-    pub fn new(parent: Option<&'a Scope<'a>>) -> Self {
+impl GlobalScope {
+    pub fn new() -> Self {
         Self {
-            vars: HashMap::new(),
-            parent,
+            functions: IdxVec::new(),
+            variables: IdxVec::new(),
+            globals: Vec::new(),
         }
     }
+}
 
-    fn lookup_variable(&self, identifier: &str) -> Option<VariableSymbol> {
-        self.vars.get(identifier).cloned().or_else(|| {
-            self.parent
-                .as_ref()
-                .map(|p| p.lookup_variable(identifier))
-                .flatten()
-        })
+pub struct LocalScope {
+    variables: Vec<VariableId>,
+    function: Option<FunctionId>,
+}
+
+impl LocalScope {
+    pub fn new() -> Self {
+        Self {
+            variables: Vec::new(),
+            function: None,
+        }
     }
+}
 
-    fn declare_variable(&mut self, identifier: String, type_: Type) -> Option<VariableSymbol> {
-        if self.vars.contains_key(&identifier) {
-            None
-        } else {
-            let symbol = VariableSymbol::new(identifier.clone(), type_);
-            self.vars.insert(identifier, symbol.clone());
-            Some(symbol)
+pub struct Scopes {
+    local_scopes: Vec<LocalScope>,
+    global_scope: GlobalScope,
+}
+
+impl Scopes {
+    pub fn new() -> Self {
+        Self {
+            local_scopes: Vec::new(),
+            global_scope: GlobalScope::new(),
         }
     }
 }

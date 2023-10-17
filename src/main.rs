@@ -9,6 +9,7 @@ use text::SourceText;
 use crate::{ast::parser::Parser, evaluator::Evaluator};
 
 mod ast;
+mod compilation;
 mod diagnostics;
 mod evaluator;
 mod id;

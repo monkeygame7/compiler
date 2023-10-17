@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{id::Idx, id::IdxVec, idx, text::TextSpan};
+use crate::{id::Idx, id::IdxVec, idx, scope::VariableId, text::TextSpan};
 
 use self::{lexer::SyntaxToken, printer::AstPrinter, visitor::AstVisitor};
 
@@ -12,8 +12,6 @@ pub mod visitor;
 idx!(ItemId);
 idx!(StmtId);
 idx!(ExprId);
-// TODO: Move to compilation unit
-idx!(VariableId);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Type {
