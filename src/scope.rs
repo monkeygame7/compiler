@@ -1,5 +1,6 @@
 use crate::{
-    ast::{lexer::SyntaxToken, Type},
+    ast::lexer::SyntaxToken,
+    compilation::Type,
     id::{Idx, IdxVec},
     idx,
 };

@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     ast::lexer::{SyntaxToken, TokenKind},
+    compilation::Type,
     text::TextSpan,
 };
 
@@ -56,6 +57,13 @@ impl DiagnosticBag {
         self.add_message(
             format!("Expected expression, but found '{}'", token),
             token.span,
+        )
+    }
+
+    pub fn report_unexpected_type(&self, expected_type: Type, actual_type: Type, span: TextSpan) {
+        self.add_message(
+            format!("Expected '{}' but found '{}'", expected_type, actual_type),
+            span,
         )
     }
 

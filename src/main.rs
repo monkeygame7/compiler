@@ -1,4 +1,5 @@
 use colored::Colorize;
+use compilation::CompilationUnit;
 use diagnostics::DiagnosticBag;
 use std::{
     io::{self, Write},
@@ -6,7 +7,7 @@ use std::{
 };
 use text::SourceText;
 
-use crate::{ast::parser::Parser, evaluator::Evaluator};
+use crate::evaluator::Evaluator;
 
 mod ast;
 mod compilation;
@@ -45,44 +46,50 @@ fn main() -> io::Result<()> {
         }
         buffer += &line_buffer;
 
-        let src = SourceText::from(&buffer).unwrap();
-        let diagnostics = Rc::new(DiagnosticBag::new());
-        let mut tree = Parser::parse(&src, diagnostics.clone());
-        if show_tree {
-            tree.print();
-        }
-
-        let result = Evaluator::evaluate(&mut tree, diagnostics.clone());
-        if line_buffer.trim().is_empty() && diagnostics.has_errors() {
-            let mut diagnostics = diagnostics
-                .messages
-                .borrow()
-                .iter()
-                .map(|d| (*d).clone())
-                .collect::<Vec<_>>();
-            diagnostics.sort_by(|a, b| a.span.start.partial_cmp(&b.span.start).unwrap());
-            for error in diagnostics {
-                let line = src.get_line(error.span.start);
-                let span = src.relative_span(error.span);
-                println!("{}", error.to_string().red());
-                if line.len() > 0 {
-                    let pre = &line[..span.start].trim_start();
-                    let highlight = &line[span.start..span.end].to_string().red();
-                    let post = &line[span.end..].trim_end();
-                    // TODO: Include line number in output
-                    println!("{}{}{}\n", pre, highlight, post);
+        let mut compilation = CompilationUnit::compile(&buffer, show_tree);
+        match compilation {
+            Ok(mut program) => {
+                let result = Evaluator::evaluate(&mut program.ast, program.diagnostics.clone());
+                if program.diagnostics.has_errors() {
+                    print_diagnostics(program.diagnostics.clone(), &program.src);
+                } else {
+                    match result {
+                        evaluator::ResultType::Void => println!(""),
+                        _ => println!("\n{}", result.to_string().purple()),
+                    }
+                    buffer.clear();
                 }
             }
-            println!();
-            buffer.clear()
-        } else if !diagnostics.has_errors() {
-            match result {
-                evaluator::ResultType::Void => println!(""),
-                _ => println!("\n{}", result.to_string().purple()),
+            Err((src, diagnostics)) if line_buffer.trim().is_empty() => {
+                print_diagnostics(diagnostics, &src);
+                buffer.clear();
             }
-            buffer.clear();
+            _ => continue,
         }
     }
 
     Ok(())
+}
+
+fn print_diagnostics(diagnostics: Rc<DiagnosticBag>, src: &SourceText) {
+    let mut diagnostics = diagnostics
+        .messages
+        .borrow()
+        .iter()
+        .map(|d| (*d).clone())
+        .collect::<Vec<_>>();
+    diagnostics.sort_by(|a, b| a.span.start.partial_cmp(&b.span.start).unwrap());
+    for error in diagnostics {
+        let line = src.get_line(error.span.start);
+        let span = src.relative_span(error.span);
+        println!("{}", error.to_string().red());
+        if line.len() > 0 {
+            let pre = &line[..span.start].trim_start();
+            let highlight = &line[span.start..span.end].to_string().red();
+            let post = &line[span.end..].trim_end();
+            // TODO: Include line number in output
+            println!("{}{}{}\n", pre, highlight, post);
+        }
+    }
+    println!();
 }

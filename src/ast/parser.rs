@@ -31,8 +31,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(src: &'a SourceText, diagnostics: Rc<DiagnosticBag>) -> Ast {
-        let mut lexer = Lexer::new(&src);
+    pub fn parse(mut lexer: Lexer, diagnostics: Rc<DiagnosticBag>) -> Ast {
         let mut tokens = Vec::new();
 
         loop {

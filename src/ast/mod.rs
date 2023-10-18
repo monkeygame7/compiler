@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{id::Idx, id::IdxVec, idx, scope::VariableId, text::TextSpan};
+use crate::{compilation::Type, id::Idx, id::IdxVec, idx, scope::VariableId, text::TextSpan};
 
 use self::{lexer::SyntaxToken, printer::AstPrinter, visitor::AstVisitor};
 
@@ -12,13 +12,6 @@ pub mod visitor;
 idx!(ItemId);
 idx!(StmtId);
 idx!(ExprId);
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Type {
-    Int,
-    Bool,
-    Unresolved,
-}
 
 pub struct Ast {
     statements: IdxVec<StmtId, Stmt>,
@@ -87,22 +80,23 @@ impl Ast {
         id
     }
 
-    fn create_stmt(&mut self, kind: StmtKind) -> StmtId {
-        let stmt = Stmt::new(kind);
+    fn create_stmt(&mut self, kind: StmtKind, span: TextSpan) -> StmtId {
+        let stmt = Stmt::new(kind, span);
         let id = self.statements.push(stmt);
         self.statements[id].id = id;
         id
     }
 
-    fn create_expr(&mut self, kind: ExprKind) -> ExprId {
-        let expr = Expr::new(kind);
+    fn create_expr(&mut self, kind: ExprKind, span: TextSpan) -> ExprId {
+        let expr = Expr::new(kind, span);
         let id = self.expressions.push(expr);
         self.expressions[id].id = id;
         id
     }
 
     fn create_expr_stmt(&mut self, expr: ExprId) -> StmtId {
-        self.create_stmt(StmtKind::Expr(expr))
+        let expr_span = self.query_expr(expr).span;
+        self.create_stmt(StmtKind::Expr(expr), expr_span)
     }
 
     fn create_let_stmt(
@@ -112,17 +106,22 @@ impl Ast {
         equals_token: SyntaxToken,
         expr: ExprId,
     ) -> StmtId {
-        self.create_stmt(StmtKind::Let(LetStmt {
-            keyword,
-            identifier,
-            variable: VariableId::default(),
-            equals_token,
-            initial: expr,
-        }))
+        let expr_span = self.query_expr(expr).span;
+        let span = keyword.span.to(expr_span);
+        self.create_stmt(
+            StmtKind::Let(LetStmt {
+                keyword,
+                identifier,
+                variable: VariableId::default(),
+                equals_token,
+                initial: expr,
+            }),
+            span,
+        )
     }
 
     fn create_error_expr(&mut self, span: TextSpan) -> ExprId {
-        self.create_expr(ExprKind::Error(span))
+        self.create_expr(ExprKind::Error(span), span)
     }
 
     fn create_block_expr(
@@ -131,11 +130,15 @@ impl Ast {
         stmts: Vec<StmtId>,
         close_token: SyntaxToken,
     ) -> ExprId {
-        self.create_expr(ExprKind::Block(BlockExpr {
-            open_token,
-            stmts,
-            close_token,
-        }))
+        let span = open_token.span.to(close_token.span);
+        self.create_expr(
+            ExprKind::Block(BlockExpr {
+                open_token,
+                stmts,
+                close_token,
+            }),
+            span,
+        )
     }
 
     fn create_binary_expr(
@@ -144,47 +147,69 @@ impl Ast {
         operator: BinaryOperator,
         right: ExprId,
     ) -> ExprId {
-        self.create_expr(ExprKind::Binary(BinaryExpr {
-            left,
-            operator,
-            right,
-        }))
+        let left_span = self.query_expr(left).span;
+        let right_span = self.query_expr(right).span;
+        self.create_expr(
+            ExprKind::Binary(BinaryExpr {
+                left,
+                operator,
+                right,
+            }),
+            left_span.to(right_span),
+        )
     }
 
     fn create_unary_expr(&mut self, operator: UnaryOperator, expr: ExprId) -> ExprId {
-        self.create_expr(ExprKind::Unary(UnaryExpr {
-            operator,
-            operand: expr,
-        }))
+        let expr_span = self.query_expr(expr).span;
+        let span = operator.token.span.to(expr_span);
+        self.create_expr(
+            ExprKind::Unary(UnaryExpr {
+                operator,
+                operand: expr,
+            }),
+            span,
+        )
     }
 
     fn create_assign_expr(&mut self, lhs: SyntaxToken, equals: SyntaxToken, rhs: ExprId) -> ExprId {
-        self.create_expr(ExprKind::Assign(AssignExpr {
-            identifier: lhs,
-            equals,
-            rhs,
-            variable: VariableId::default(),
-        }))
+        let rhs_span = self.query_expr(rhs).span;
+        let span = lhs.span.to(rhs_span);
+        self.create_expr(
+            ExprKind::Assign(AssignExpr {
+                identifier: lhs,
+                equals,
+                rhs,
+                variable: VariableId::default(),
+            }),
+            span,
+        )
     }
 
     fn create_paren_expr(&mut self, open: SyntaxToken, expr: ExprId, close: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Paren(ParenExpr { open, expr, close }))
+        let span = open.span.to(close.span);
+        self.create_expr(ExprKind::Paren(ParenExpr { open, expr, close }), span)
     }
 
     fn create_integer_expr(&mut self, value: i32, token: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Integer(IntegerExpr { token, value }))
+        let span = token.span;
+        self.create_expr(ExprKind::Integer(IntegerExpr { token, value }), span)
     }
 
     fn create_boolean_expr(&mut self, value: bool, token: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Boolean(BooleanExpr { token, value }))
+        let span = token.span;
+        self.create_expr(ExprKind::Boolean(BooleanExpr { token, value }), span)
     }
 
     fn create_variable_expr(&mut self, token: SyntaxToken) -> ExprId {
-        self.create_expr(ExprKind::Variable(VariableExpr {
-            token,
-            variable_id: VariableId::default(),
-            typ: Type::Unresolved,
-        }))
+        let span = token.span;
+        self.create_expr(
+            ExprKind::Variable(VariableExpr {
+                token,
+                variable_id: VariableId::default(),
+                typ: Type::Unresolved,
+            }),
+            span,
+        )
     }
 }
 
@@ -212,13 +237,15 @@ pub enum ItemKind {
 pub struct Stmt {
     pub kind: StmtKind,
     pub id: StmtId,
+    pub span: TextSpan,
 }
 
 impl Stmt {
-    fn new(kind: StmtKind) -> Self {
+    fn new(kind: StmtKind, span: TextSpan) -> Self {
         Self {
             kind,
             id: StmtId::default(),
+            span,
         }
     }
 }
@@ -243,14 +270,16 @@ pub struct Expr {
     pub kind: ExprKind,
     pub id: ExprId,
     pub typ: Type,
+    pub span: TextSpan,
 }
 
 impl Expr {
-    fn new(kind: ExprKind) -> Self {
+    fn new(kind: ExprKind, span: TextSpan) -> Self {
         Self {
             kind,
             id: ExprId::default(),
             typ: Type::Unresolved,
+            span,
         }
     }
 }
