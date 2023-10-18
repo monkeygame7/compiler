@@ -104,7 +104,12 @@ impl AstVisitor for Resolver {
         let var = self
             .scopes
             .declare_variable(&let_stmt.identifier, intial_expr.typ);
-        ast.set_variable_for_stmt(var, stmt.id);
+        match var {
+            Some(var) => ast.set_variable_for_stmt(var, stmt.id),
+            None => self
+                .diagnostics
+                .report_already_declared(&let_stmt.identifier),
+        }
     }
 
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
@@ -126,15 +131,14 @@ impl AstVisitor for Resolver {
         let typ = match var {
             Some(var) => {
                 let rhs_expr = ast.query_expr(assign_expr.rhs);
-                let var_typ = self.scopes.lookup_type(var);
-                self.expect_type(rhs_expr.typ, var_typ, rhs_expr.span);
-                var_typ
+                self.expect_type(var.typ, rhs_expr.typ, rhs_expr.span);
+                ast.set_variable_for_expr(var.id, expr.id);
+                var.typ
             }
             None => {
                 todo!("Undeclared variable")
             }
         };
-
         ast.set_type(expr.id, typ);
     }
 
@@ -156,14 +160,24 @@ impl AstVisitor for Resolver {
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
         let var = self.scopes.lookup_variable(&variable_expr.token.literal);
         let typ = match var {
-            Some(var) => self.scopes.lookup_type(var),
-            None => todo!("undeclared variable"),
+            Some(var) => {
+                ast.set_variable_for_expr(var.id, expr.id);
+                var.typ
+            }
+            None => {
+                self.diagnostics
+                    .report_identifier_not_found(&variable_expr.token);
+                Type::Unresolved
+            }
         };
+
         ast.set_type(expr.id, typ);
     }
 
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &crate::ast::BlockExpr, expr: &Expr) {
+        self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
+        self.scopes.exit_scope();
     }
 }
 
@@ -172,7 +186,7 @@ impl Display for Type {
         let s = match self {
             Type::Int => "<int>",
             Type::Bool => "<bool>",
-            Type::Unresolved => "<UNRESOLVED>",
+            Type::Unresolved => "UNRESOLVED",
         };
 
         write!(f, "{}", s)

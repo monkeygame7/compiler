@@ -73,6 +73,15 @@ impl Ast {
         }
     }
 
+    pub fn set_variable_for_expr(&mut self, var: VariableId, expr: ExprId) {
+        let expr = self.query_expr_mut(expr);
+        match &mut expr.kind {
+            ExprKind::Assign(assign_expr) => assign_expr.variable = var,
+            ExprKind::Variable(var_expr) => var_expr.id = var,
+            _ => unreachable!("only assignment expressions have variables"),
+        }
+    }
+
     fn create_item(&mut self, kind: ItemKind) -> ItemId {
         let item = Item::new(kind);
         let id = self.items.push(item);
@@ -205,7 +214,7 @@ impl Ast {
         self.create_expr(
             ExprKind::Variable(VariableExpr {
                 token,
-                variable_id: VariableId::default(),
+                id: VariableId::default(),
                 typ: Type::Unresolved,
             }),
             span,
@@ -413,7 +422,7 @@ pub struct BlockExpr {
 #[derive(Debug, Clone)]
 pub struct VariableExpr {
     pub token: SyntaxToken,
-    pub variable_id: VariableId,
+    pub id: VariableId,
     pub typ: Type,
 }
 

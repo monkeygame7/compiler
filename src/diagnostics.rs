@@ -95,11 +95,18 @@ impl DiagnosticBag {
         );
     }
 
-    pub fn report_identifier_not_found(&self, identifier: &str, span: TextSpan) {
+    pub fn report_identifier_not_found(&self, token: &SyntaxToken) {
         self.add_message(
-            format!("'{}' is not defined in this scope", identifier),
-            span,
+            format!("'{}' is not defined in this scope", token),
+            token.span,
         );
+    }
+
+    pub fn report_already_declared(&self, token: &SyntaxToken) {
+        self.add_message(
+            format!("'{}' is already defined in this scope", token),
+            token.span,
+        )
     }
 
     pub fn report_invalid_expression(&self, span: TextSpan) {

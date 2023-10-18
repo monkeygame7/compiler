@@ -11,13 +11,13 @@ use crate::{
         VariableExpr,
     },
     diagnostics::DiagnosticBag,
+    scope::VariableId,
     text::TextSpan,
 };
 
 pub struct Evaluator {
-    scopes: Vec<HashMap<String, ResultType>>,
+    scopes: Vec<HashMap<VariableId, ResultType>>,
     diagnostics: Rc<DiagnosticBag>,
-    vars: HashMap<String, ResultType>,
     last_result: Option<ResultType>,
 }
 
@@ -63,7 +63,17 @@ impl AstVisitor for Evaluator {
     ) {
         self.visit_expr(ast, assign_expr.rhs);
         let value = self.last_result.unwrap();
-        self.assign_var(&assign_expr.identifier.literal, value);
+
+        let scope = self
+            .scopes
+            .iter_mut()
+            .rev()
+            .filter(|scope| scope.contains_key(&assign_expr.variable))
+            .nth(0)
+            .expect("Variable not found");
+
+        scope.insert(assign_expr.variable, value);
+
         self.last_result = Some(value)
     }
 
@@ -122,26 +132,37 @@ impl AstVisitor for Evaluator {
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
-        let identifier = &variable_expr.token.literal;
-        let value = &self.vars.get(identifier).cloned().unwrap_or(Undefined);
-        self.last_result = Some(*value);
+        self.last_result = self
+            .scopes
+            .iter()
+            .rev()
+            .flat_map(|vars| vars.get(&variable_expr.id))
+            .map(|id| id)
+            .nth(0)
+            .cloned();
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
-        let identifier = &let_stmt.identifier.literal;
-        assert!(!self.vars.contains_key(identifier));
         self.visit_expr(ast, let_stmt.initial);
-        self.vars
-            .insert(identifier.to_string(), self.last_result.take().unwrap());
+        let value = self.last_result.take().unwrap();
+
+        let last_scope = self.scopes.last_mut().unwrap();
+        assert!(!&last_scope.contains_key(&let_stmt.variable));
+        last_scope.insert(let_stmt.variable, value);
+    }
+
+    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+        self.scopes.push(HashMap::new());
+        self.do_visit_block_expr(ast, block_expr, expr);
+        self.scopes.pop().expect("Unexpected empty scopes");
     }
 }
 
 impl Evaluator {
     fn new(diagnostics: Rc<DiagnosticBag>) -> Evaluator {
         Evaluator {
-            scopes: vec![],
+            scopes: vec![HashMap::new()],
             diagnostics,
-            vars: HashMap::new(),
             last_result: None,
         }
     }
@@ -150,10 +171,6 @@ impl Evaluator {
         let mut evaluator = Self::new(diagnostics);
         ast.visit(&mut evaluator);
         evaluator.last_result.take().unwrap_or(ResultType::Void)
-    }
-
-    fn assign_var(&mut self, identifier: &str, right_result: ResultType) {
-        self.vars.insert(identifier.to_string(), right_result);
     }
 }
 
