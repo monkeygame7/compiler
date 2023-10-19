@@ -413,15 +413,15 @@ mod test {
             todo!()
         }
 
-        fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &crate::ast::IfExpr, expr: &Expr) {
+        fn visit_if_expr(&mut self, _ast: &mut Ast, _if_expr: &crate::ast::IfExpr, _expr: &Expr) {
             todo!()
         }
 
         fn visit_while_stmt(
             &mut self,
-            ast: &mut Ast,
-            while_stmt: &crate::ast::WhileStmt,
-            stmt: &Stmt,
+            _ast: &mut Ast,
+            _while_stmt: &crate::ast::WhileStmt,
+            _stmt: &Stmt,
         ) {
             todo!()
         }

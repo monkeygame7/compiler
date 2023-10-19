@@ -127,7 +127,7 @@ impl AstVisitor for Resolver {
         }
     }
 
-    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, stmt: &Stmt) {
+    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
         self.visit_expr(ast, while_stmt.condition);
 
         let condition = ast.query_expr(while_stmt.condition);
