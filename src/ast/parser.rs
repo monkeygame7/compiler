@@ -286,7 +286,7 @@ mod test {
         fn new(text: String) -> Self {
             let src = SourceText::from(&text).unwrap();
             let diagnostics = Rc::new(DiagnosticBag::new());
-            let mut lexer = Lexer::new(&src);
+            let lexer = Lexer::new(&src);
             let mut ast = Parser::parse(lexer, diagnostics.clone());
 
             let errors: Vec<_> = diagnostics
@@ -328,40 +328,40 @@ mod test {
     }
 
     impl AstVisitor for AssertingIterator {
-        fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
+        fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
             self.nodes
                 .push(Matcher::LetDecl(let_stmt.identifier.literal.clone()));
             self.visit_expr(ast, let_stmt.initial);
         }
 
-        fn visit_error(&mut self, ast: &mut Ast, span: &crate::text::TextSpan, expr: &Expr) {
+        fn visit_error(&mut self, _ast: &mut Ast, _span: &crate::text::TextSpan, _expr: &Expr) {
             self.nodes.push(Matcher::Bad);
         }
 
-        fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
+        fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Int(int_expr.value));
         }
 
-        fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &BooleanExpr, expr: &Expr) {
+        fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Bool(bool_expr.value));
         }
 
-        fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
+        fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Binary(binary_expr.operator.kind));
             self.visit_expr(ast, binary_expr.left);
             self.visit_expr(ast, binary_expr.right);
         }
 
-        fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
+        fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Unary(unary_expr.operator.kind));
             self.visit_expr(ast, unary_expr.operand);
         }
 
         fn visit_variable_expr(
             &mut self,
-            ast: &mut Ast,
+            _ast: &mut Ast,
             variable_expr: &VariableExpr,
-            expr: &Expr,
+            _expr: &Expr,
         ) {
             self.nodes
                 .push(Matcher::Ident(variable_expr.token.literal.clone()));
@@ -369,9 +369,9 @@ mod test {
 
         fn visit_assign_expr(
             &mut self,
-            ast: &mut Ast,
-            assign_expr: &crate::ast::AssignExpr,
-            expr: &Expr,
+            _ast: &mut Ast,
+            _assign_expr: &crate::ast::AssignExpr,
+            _expr: &Expr,
         ) {
             todo!()
         }

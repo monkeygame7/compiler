@@ -73,19 +73,19 @@ impl AstPrinter {
 }
 
 impl AstVisitor for AstPrinter {
-    fn visit_error(&mut self, ast: &mut Ast, span: &crate::text::TextSpan, expr: &Expr) {
+    fn visit_error(&mut self, _ast: &mut Ast, _span: &crate::text::TextSpan, _expr: &Expr) {
         self.append_item("(ERROR)".red());
     }
 
-    fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
+    fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
         self.append_item(&int_expr.token.to_string().bright_blue());
     }
 
-    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &super::BooleanExpr, expr: &Expr) {
+    fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &super::BooleanExpr, _expr: &Expr) {
         self.append_item(&bool_expr.token.to_string().bright_yellow());
     }
 
-    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &super::AssignExpr, expr: &Expr) {
+    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &super::AssignExpr, _expr: &Expr) {
         self.append_operator("=");
 
         let was_last = self.is_last;
@@ -100,7 +100,7 @@ impl AstVisitor for AstPrinter {
         self.unindent();
     }
 
-    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
+    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, _expr: &Expr) {
         self.append_structural("paren");
 
         let was_last = self.is_last;
@@ -113,7 +113,7 @@ impl AstVisitor for AstPrinter {
         self.unindent();
     }
 
-    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
+    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
         self.append_operator(&binary_expr.operator.token);
 
         let was_last = self.is_last;
@@ -128,7 +128,7 @@ impl AstVisitor for AstPrinter {
         self.unindent();
     }
 
-    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
+    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
         self.append_operator(&unary_expr.operator.token);
 
         let was_last = self.is_last;
@@ -141,7 +141,7 @@ impl AstVisitor for AstPrinter {
         self.unindent();
     }
 
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, _expr: &Expr) {
         self.append_structural("block");
 
         let was_last = self.is_last;
@@ -156,11 +156,11 @@ impl AstVisitor for AstPrinter {
         self.unindent();
     }
 
-    fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
+    fn visit_variable_expr(&mut self, _ast: &mut Ast, variable_expr: &VariableExpr, _expr: &Expr) {
         self.append_item(&variable_expr.token.to_string().green());
     }
 
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, stmt: &super::Stmt) {
+    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
         self.append_keyword(&let_stmt.keyword);
 
         let was_last = self.is_last;

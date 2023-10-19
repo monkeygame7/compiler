@@ -21,7 +21,7 @@ pub trait AstVisitor {
         }
     }
 
-    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr: ExprId, stmt: &Stmt) {
+    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr: ExprId, _stmt: &Stmt) {
         self.visit_expr(ast, expr);
     }
 
@@ -56,7 +56,7 @@ pub trait AstVisitor {
 
     fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, expr: &Expr);
 
-    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
+    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, _expr: &Expr) {
         self.visit_expr(ast, paren_expr.expr);
     }
 
@@ -68,7 +68,7 @@ pub trait AstVisitor {
         self.do_visit_block_expr(ast, block_expr, expr);
     }
 
-    fn do_visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+    fn do_visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, _expr: &Expr) {
         for stmt in block_expr.stmts.iter() {
             self.visit_stmt(ast, *stmt);
         }

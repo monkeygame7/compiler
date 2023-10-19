@@ -133,15 +133,15 @@ impl AstVisitor for Resolver {
         ast.set_type(expr.id, inner_expr.typ);
     }
 
-    fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
+    fn visit_error(&mut self, ast: &mut Ast, _span: &TextSpan, expr: &Expr) {
         ast.set_type(expr.id, Type::Unresolved);
     }
 
-    fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
+    fn visit_integer_expr(&mut self, ast: &mut Ast, _int_expr: &IntegerExpr, expr: &Expr) {
         ast.set_type(expr.id, Type::Int);
     }
 
-    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &BooleanExpr, expr: &Expr) {
+    fn visit_boolean_expr(&mut self, ast: &mut Ast, _bool_expr: &BooleanExpr, expr: &Expr) {
         ast.set_type(expr.id, Type::Bool);
     }
 

@@ -1,17 +1,13 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
-    rc::Rc,
 };
 
 use crate::{
     ast::{
         visitor::AstVisitor, AssignExpr, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr,
-        BooleanExpr, Expr, ExprId, ExprKind, IntegerExpr, LetStmt, ParenExpr, Stmt, UnaryExpr,
-        UnaryOperatorKind, VariableExpr,
+        BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt, UnaryExpr, UnaryOperatorKind, VariableExpr,
     },
-    compilation::Type,
-    diagnostics::DiagnosticBag,
     scope::VariableId,
     text::TextSpan,
 };
@@ -38,19 +34,19 @@ impl Display for ResultType {
 use ResultType::*;
 
 impl AstVisitor for Evaluator {
-    fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
+    fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
         self.last_result = Some(Undefined);
     }
 
-    fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
+    fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
         self.last_result = Some(Integer(int_expr.value));
     }
 
-    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &BooleanExpr, expr: &Expr) {
+    fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
         self.last_result = Some(Boolean(bool_expr.value));
     }
 
-    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, expr: &Expr) {
+    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, _expr: &Expr) {
         self.visit_expr(ast, assign_expr.rhs);
         let value = self.last_result.unwrap();
 
@@ -67,7 +63,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(value)
     }
 
-    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
+    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
         self.visit_expr(ast, binary_expr.left);
         let left = self.last_result.take().unwrap();
         self.visit_expr(ast, binary_expr.right);
@@ -102,7 +98,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
-    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
+    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
         self.visit_expr(ast, unary_expr.operand);
         let expr_result = self.last_result.take().unwrap();
         let result = match expr_result {
@@ -121,18 +117,17 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
-    fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
+    fn visit_variable_expr(&mut self, _ast: &mut Ast, variable_expr: &VariableExpr, _expr: &Expr) {
         self.last_result = self
             .scopes
             .iter()
             .rev()
             .flat_map(|vars| vars.get(&variable_expr.id))
-            .map(|id| id)
             .nth(0)
             .cloned();
     }
 
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
+    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let value = self.last_result.take().unwrap();
 
@@ -166,7 +161,7 @@ impl Evaluator {
 
 #[cfg(test)]
 mod test {
-    use std::{rc::Rc, vec};
+    use std::vec;
 
     use crate::compilation::CompilationUnit;
 
