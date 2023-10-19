@@ -6,10 +6,11 @@ use std::{
 
 use crate::{
     ast::{
-        visitor::AstVisitor, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr, Expr, ExprId,
-        ExprKind, IntegerExpr, LetStmt, ParenExpr, Stmt, UnaryExpr, UnaryOperatorKind,
-        VariableExpr,
+        visitor::AstVisitor, AssignExpr, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr,
+        BooleanExpr, Expr, ExprId, ExprKind, IntegerExpr, LetStmt, ParenExpr, Stmt, UnaryExpr,
+        UnaryOperatorKind, VariableExpr,
     },
+    compilation::Type,
     diagnostics::DiagnosticBag,
     scope::VariableId,
     text::TextSpan,
@@ -17,7 +18,6 @@ use crate::{
 
 pub struct Evaluator {
     scopes: Vec<HashMap<VariableId, ResultType>>,
-    diagnostics: Rc<DiagnosticBag>,
     last_result: Option<ResultType>,
 }
 
@@ -39,28 +39,18 @@ use ResultType::*;
 
 impl AstVisitor for Evaluator {
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
-        self.last_result = Some(ResultType::Undefined);
+        self.last_result = Some(Undefined);
     }
 
     fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
-        self.last_result = Some(ResultType::Integer(int_expr.value));
+        self.last_result = Some(Integer(int_expr.value));
     }
 
-    fn visit_boolean_expr(
-        &mut self,
-        ast: &mut Ast,
-        bool_expr: &crate::ast::BooleanExpr,
-        expr: &Expr,
-    ) {
-        self.last_result = Some(ResultType::Boolean(bool_expr.value));
+    fn visit_boolean_expr(&mut self, ast: &mut Ast, bool_expr: &BooleanExpr, expr: &Expr) {
+        self.last_result = Some(Boolean(bool_expr.value));
     }
 
-    fn visit_assign_expr(
-        &mut self,
-        ast: &mut Ast,
-        assign_expr: &crate::ast::AssignExpr,
-        expr: &Expr,
-    ) {
+    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, expr: &Expr) {
         self.visit_expr(ast, assign_expr.rhs);
         let value = self.last_result.unwrap();
 
@@ -149,6 +139,7 @@ impl AstVisitor for Evaluator {
         let last_scope = self.scopes.last_mut().unwrap();
         assert!(!&last_scope.contains_key(&let_stmt.variable));
         last_scope.insert(let_stmt.variable, value);
+        self.last_result = Some(Void);
     }
 
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
@@ -159,18 +150,17 @@ impl AstVisitor for Evaluator {
 }
 
 impl Evaluator {
-    fn new(diagnostics: Rc<DiagnosticBag>) -> Evaluator {
+    fn new() -> Evaluator {
         Evaluator {
             scopes: vec![HashMap::new()],
-            diagnostics,
             last_result: None,
         }
     }
 
-    pub fn evaluate(ast: &mut Ast, diagnostics: Rc<DiagnosticBag>) -> ResultType {
-        let mut evaluator = Self::new(diagnostics);
+    pub fn evaluate(ast: &mut Ast) -> ResultType {
+        let mut evaluator = Self::new();
         ast.visit(&mut evaluator);
-        evaluator.last_result.take().unwrap_or(ResultType::Void)
+        evaluator.last_result.take().unwrap_or(Void)
     }
 }
 
@@ -178,13 +168,13 @@ impl Evaluator {
 mod test {
     use std::{rc::Rc, vec};
 
-    use crate::{ast::parser::Parser, text::SourceText};
+    use crate::compilation::CompilationUnit;
 
     use super::*;
 
     struct TestCase {
         input: String,
-        actual_input: SourceText,
+        actual_input: String,
         expected_spans: Vec<TextSpan>,
     }
 
@@ -215,48 +205,50 @@ mod test {
             expected_spans.sort();
             TestCase {
                 input: input.to_string(),
-                actual_input: SourceText::from(&actual_input).unwrap(),
+                actual_input,
                 expected_spans,
             }
         }
 
         fn evaluate(&self, expected_result: ResultType) {
-            let diagnostics = Rc::new(DiagnosticBag::new());
-            let mut tree = Parser::parse(&self.actual_input, diagnostics.clone());
-            let result = Evaluator::evaluate(&mut tree, diagnostics.clone());
+            let compilation = CompilationUnit::compile(&self.actual_input, true);
+            match compilation {
+                Ok(mut unit) => {
+                    let result = Evaluator::evaluate(&mut unit.ast);
+                    assert!(
+                        self.expected_spans.is_empty(),
+                        "Expected errors in '{}' but found none",
+                        self.input
+                    );
+                    assert_eq!(result, expected_result, "{}", self.input);
+                }
+                Err((_, diagnostics)) => {
+                    assert!(diagnostics.has_errors());
+                    let mut messages = vec![];
+                    let mut errors: Vec<_> = diagnostics
+                        .messages
+                        .borrow()
+                        .iter()
+                        .map(|dm| {
+                            let dm = dm.clone();
+                            messages.push(dm.message);
+                            dm.span
+                        })
+                        .collect();
+                    assert!(
+                        self.expected_spans.len() > 0,
+                        "Expected no errors in '{}' but found:\n{:?}",
+                        self.input,
+                        messages,
+                    );
 
-            if diagnostics.has_errors() {
-                let mut messages = vec![];
-                let mut errors: Vec<_> = diagnostics
-                    .messages
-                    .borrow()
-                    .iter()
-                    .map(|dm| {
-                        let dm = dm.clone();
-                        messages.push(dm.message);
-                        dm.span
-                    })
-                    .collect();
-                assert!(
-                    self.expected_spans.len() > 0,
-                    "Expected no errors in '{}' but found:\n{:?}",
-                    self.input,
-                    messages,
-                );
-
-                errors.sort();
-                assert_eq!(
-                    errors, self.expected_spans,
-                    "Unexpected errors in '{}':\n{:?}",
-                    self.input, messages
-                );
-            } else {
-                assert!(
-                    self.expected_spans.is_empty(),
-                    "Expected errors in '{}' but found none",
-                    self.input
-                );
-                assert_eq!(result, expected_result);
+                    errors.sort();
+                    assert_eq!(
+                        errors, self.expected_spans,
+                        "Unexpected errors in '{}':\n{:?}",
+                        self.input, messages
+                    );
+                }
             }
         }
     }
@@ -298,18 +290,18 @@ mod test {
             ("123 & 0", 0),
             ("123 | 0", 123),
             ("123 | -1", -1),
-            ("let x = 4 x = x = x = x + 5", 9),
             ("let x = 4 x = x = x + 5", 9),
+            ("let x = 4 x = x + 5", 9),
+            ("let x = 4 {let y = x let x = 2 y + x}", 6),
+            ("let x = 4 {x + 2}", 6),
+            ("let x = 4 + {let x = 2 - {let y = 10 y + 100} x} x", -104),
+            ("let x = 4 x + {let y = 3 x + y}", 11),
         ];
         let bool_cases = vec![
             ("true", true),
             ("false", false),
             ("!true", !true),
             ("!false", !false),
-            ("true & false", false),
-            ("true & true", true),
-            ("false | false", false),
-            ("false | true", true),
             ("true && false", false),
             ("true && true", true),
             ("true || false", true),
@@ -330,15 +322,22 @@ mod test {
         let void_cases = vec!["", "let x = 4"];
         let undefined_cases = vec![
             "[$]",
+            "[x] + 4",
             "(1 + 2[]",
-            "-true",
+            "-[true]",
             "13 [@]",
-            "4 && 5",
-            "true + false",
+            "[4] && [5]",
+            "1 + [true]",
+            "[true] + [false]",
             "([$] + 2) - 4",
             "([$]) + 4",
-            "foo + bar",
-            "1 + [let] x = 4",
+            "[foo] + [bar]",
+            "1 + [let] [x] = 4",
+            "[true] & [false]",
+            "[true] | [false]",
+            "let x = 4 + {let x = 2 - {let y = {[x] + 10} y + 100} x}",
+            "let x = { let y = 4 } [x] + 5",
+            "4 + [{let x = 4}]",
         ];
 
         int_cases

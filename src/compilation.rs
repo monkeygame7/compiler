@@ -3,7 +3,8 @@ use std::{fmt::Display, rc::Rc};
 use crate::{
     ast::{
         lexer::Lexer, parser::Parser, visitor::AstVisitor, AssignExpr, Ast, BinaryExpr,
-        BinaryOperatorKind, BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt, UnaryExpr, VariableExpr,
+        BinaryOperatorKind, BooleanExpr, Expr, IntegerExpr, LetStmt, ParenExpr, Stmt, StmtKind,
+        UnaryExpr, UnaryOperatorKind, VariableExpr,
     },
     diagnostics::DiagnosticBag,
     scope::{GlobalScope, Scopes},
@@ -15,6 +16,7 @@ pub enum Type {
     Int,
     Bool,
     Unresolved,
+    Void,
 }
 
 pub struct CompilationUnit {
@@ -66,7 +68,9 @@ impl Resolver {
     }
 
     pub fn expect_type(&self, expected: Type, actual: Type, span: TextSpan) -> Type {
-        if expected != actual {
+        // ignore if type is unresolved because that indicates type binding failed, which should
+        // have already been reported as another error
+        if expected != actual && actual != Type::Unresolved {
             self.diagnostics
                 .report_unexpected_type(expected, actual, span);
         }
@@ -95,6 +99,17 @@ impl Resolver {
 
         result
     }
+
+    fn resolve_unary_expr(&self, op: UnaryOperatorKind, operand: &Expr) -> Type {
+        let (expected_operand, result) = match op {
+            UnaryOperatorKind::Identity => (Type::Int, Type::Int),
+            UnaryOperatorKind::Negate => (Type::Int, Type::Int),
+            UnaryOperatorKind::LogicalNot => (Type::Bool, Type::Bool),
+        };
+        self.expect_type(expected_operand, operand.typ, operand.span);
+
+        result
+    }
 }
 
 impl AstVisitor for Resolver {
@@ -112,8 +127,14 @@ impl AstVisitor for Resolver {
         }
     }
 
+    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
+        self.visit_expr(ast, paren_expr.expr);
+        let inner_expr = ast.query_expr(paren_expr.expr);
+        ast.set_type(expr.id, inner_expr.typ);
+    }
+
     fn visit_error(&mut self, ast: &mut Ast, span: &TextSpan, expr: &Expr) {
-        todo!()
+        ast.set_type(expr.id, Type::Unresolved);
     }
 
     fn visit_integer_expr(&mut self, ast: &mut Ast, int_expr: &IntegerExpr, expr: &Expr) {
@@ -136,7 +157,9 @@ impl AstVisitor for Resolver {
                 var.typ
             }
             None => {
-                todo!("Undeclared variable")
+                self.diagnostics
+                    .report_identifier_not_found(&assign_expr.identifier);
+                ast.query_expr(assign_expr.rhs).typ
             }
         };
         ast.set_type(expr.id, typ);
@@ -154,7 +177,12 @@ impl AstVisitor for Resolver {
     }
 
     fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, expr: &Expr) {
-        todo!()
+        self.visit_expr(ast, unary_expr.operand);
+        let operand = ast.query_expr(unary_expr.operand);
+
+        let typ = self.resolve_unary_expr(unary_expr.operator.kind, operand);
+
+        ast.set_type(expr.id, typ);
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
@@ -178,6 +206,18 @@ impl AstVisitor for Resolver {
         self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.exit_scope();
+
+        let typ = block_expr
+            .stmts
+            .last()
+            .map(|id| ast.query_stmt(*id))
+            .and_then(|stmt| match stmt.kind {
+                StmtKind::Expr(id) => Some(ast.query_expr(id).typ),
+                _ => None,
+            })
+            .unwrap_or(Type::Void);
+
+        ast.set_type(expr.id, typ);
     }
 }
 
@@ -186,6 +226,7 @@ impl Display for Type {
         let s = match self {
             Type::Int => "<int>",
             Type::Bool => "<bool>",
+            Type::Void => "<void>",
             Type::Unresolved => "UNRESOLVED",
         };
 

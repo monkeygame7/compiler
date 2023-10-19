@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{diagnostics::DiagnosticBag, text::SourceText};
+use crate::diagnostics::DiagnosticBag;
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
@@ -243,9 +243,12 @@ impl<'a> Parser<'a> {
 mod test {
     use std::fmt::Display;
 
-    use crate::ast::{
-        visitor::AstVisitor, BinaryExpr, BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt, UnaryExpr,
-        VariableExpr,
+    use crate::{
+        ast::{
+            visitor::AstVisitor, BinaryExpr, BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt,
+            UnaryExpr, VariableExpr,
+        },
+        text::SourceText,
     };
 
     use super::*;
@@ -283,7 +286,8 @@ mod test {
         fn new(text: String) -> Self {
             let src = SourceText::from(&text).unwrap();
             let diagnostics = Rc::new(DiagnosticBag::new());
-            let mut ast = Parser::parse(&src, diagnostics.clone());
+            let mut lexer = Lexer::new(&src);
+            let mut ast = Parser::parse(lexer, diagnostics.clone());
 
             let errors: Vec<_> = diagnostics
                 .messages

@@ -46,19 +46,15 @@ fn main() -> io::Result<()> {
         }
         buffer += &line_buffer;
 
-        let mut compilation = CompilationUnit::compile(&buffer, show_tree);
+        let compilation = CompilationUnit::compile(&buffer, show_tree);
         match compilation {
             Ok(mut program) => {
-                let result = Evaluator::evaluate(&mut program.ast, program.diagnostics.clone());
-                if program.diagnostics.has_errors() {
-                    print_diagnostics(program.diagnostics.clone(), &program.src);
-                } else {
-                    match result {
-                        evaluator::ResultType::Void => println!(""),
-                        _ => println!("\n{}", result.to_string().purple()),
-                    }
-                    buffer.clear();
+                let result = Evaluator::evaluate(&mut program.ast);
+                match result {
+                    evaluator::ResultType::Void => println!(""),
+                    _ => println!("\n{}", result.to_string().purple()),
                 }
+                buffer.clear();
             }
             Err((src, diagnostics)) if line_buffer.trim().is_empty() => {
                 print_diagnostics(diagnostics, &src);
