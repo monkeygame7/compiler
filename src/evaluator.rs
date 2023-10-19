@@ -285,12 +285,51 @@ mod test {
             ("123 & 0", 0),
             ("123 | 0", 123),
             ("123 | -1", -1),
-            ("let x = 4 x = x = x + 5", 9),
-            ("let x = 4 x = x + 5", 9),
-            ("let x = 4 {let y = x let x = 2 y + x}", 6),
-            ("let x = 4 {x + 2}", 6),
-            ("let x = 4 + {let x = 2 - {let y = 10 y + 100} x} x", -104),
-            ("let x = 4 x + {let y = 3 x + y}", 11),
+            (
+                "let x = 4
+                 x = x = x + 5",
+                9,
+            ),
+            (
+                "let x = 4
+                 x = x + 5",
+                9,
+            ),
+            (
+                "let x = 4
+                {
+                    let y = x
+                    let x = 2
+                    y + x
+                }",
+                6,
+            ),
+            (
+                "let x = 4
+                {x + 2}",
+                6,
+            ),
+            (
+                "
+                let x = 4 + {
+                let x = 2 - {
+                    let y = 10
+                    y + 100
+                }
+                x
+             }
+             x",
+                -104,
+            ),
+            (
+                "
+                 let x = 4
+                 x + {
+                     let y = 3
+                     x + y
+                 }",
+                11,
+            ),
         ];
         let bool_cases = vec![
             ("true", true),
@@ -330,9 +369,22 @@ mod test {
             "1 + [let] [x] = 4",
             "[true] & [false]",
             "[true] | [false]",
-            "let x = 4 + {let x = 2 - {let y = {[x] + 10} y + 100} x}",
-            "let x = { let y = 4 } [x] + 5",
-            "4 + [{let x = 4}]",
+            "let x = 4 + {
+                let x = 2 - {
+                    let y = {
+                        [x] + 10
+                    }
+                    y + 100
+                }
+                x
+            }",
+            "let x = {
+                let y = 4
+            }
+            [x] + 5",
+            "4 + [{
+                let x = 4
+            }]",
         ];
 
         int_cases
