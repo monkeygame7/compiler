@@ -220,6 +220,30 @@ impl Ast {
             span,
         )
     }
+
+    fn create_if_expr(
+        &mut self,
+        keyword: SyntaxToken,
+        condition: ExprId,
+        then_clause: ExprId,
+        else_clause: Option<ElseClause>,
+    ) -> ExprId {
+        let end_span = else_clause
+            .as_ref()
+            .map(|els| els.span)
+            .unwrap_or_else(|| self.query_expr(then_clause).span);
+
+        let span = keyword.span.to(end_span);
+        self.create_expr(
+            ExprKind::If(IfExpr {
+                keyword,
+                condition,
+                then_clause,
+                else_clause,
+            }),
+            span,
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -304,6 +328,7 @@ pub enum ExprKind {
     Unary(UnaryExpr),
     Block(BlockExpr),
     Variable(VariableExpr),
+    If(IfExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -424,6 +449,21 @@ pub struct VariableExpr {
     pub token: SyntaxToken,
     pub id: VariableId,
     pub typ: Type,
+}
+
+#[derive(Debug, Clone)]
+pub struct IfExpr {
+    pub keyword: SyntaxToken,
+    pub condition: ExprId,
+    pub then_clause: ExprId,
+    pub else_clause: Option<ElseClause>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ElseClause {
+    pub keyword: SyntaxToken,
+    pub body: ExprId,
+    pub span: TextSpan,
 }
 
 impl Display for BinaryOperator {

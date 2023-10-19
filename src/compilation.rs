@@ -3,8 +3,8 @@ use std::{fmt::Display, rc::Rc};
 use crate::{
     ast::{
         lexer::Lexer, parser::Parser, visitor::AstVisitor, AssignExpr, Ast, BinaryExpr,
-        BinaryOperatorKind, BooleanExpr, Expr, IntegerExpr, LetStmt, ParenExpr, Stmt, StmtKind,
-        UnaryExpr, UnaryOperatorKind, VariableExpr,
+        BinaryOperatorKind, BlockExpr, BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, ParenExpr,
+        Stmt, StmtKind, UnaryExpr, UnaryOperatorKind, VariableExpr,
     },
     diagnostics::DiagnosticBag,
     scope::{GlobalScope, Scopes},
@@ -202,7 +202,7 @@ impl AstVisitor for Resolver {
         ast.set_type(expr.id, typ);
     }
 
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &crate::ast::BlockExpr, expr: &Expr) {
+    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
         self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.exit_scope();
@@ -212,10 +212,28 @@ impl AstVisitor for Resolver {
             .last()
             .map(|id| ast.query_stmt(*id))
             .and_then(|stmt| match stmt.kind {
-                StmtKind::Expr(id) => Some(ast.query_expr(id).typ),
+                // TODO: only if no semicolon
+                StmtKind::Expr(expr) => Some(ast.query_expr(expr).typ),
                 _ => None,
             })
             .unwrap_or(Type::Void);
+
+        ast.set_type(expr.id, typ);
+    }
+
+    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, expr: &Expr) {
+        self.visit_expr(ast, if_expr.condition);
+
+        let condition = ast.query_expr(if_expr.condition);
+        self.expect_type(Type::Bool, condition.typ, condition.span);
+
+        self.visit_expr(ast, if_expr.then_clause);
+        let typ = if let Some(else_clause) = &if_expr.else_clause {
+            self.visit_expr(ast, else_clause.body);
+            ast.query_expr(else_clause.body).typ
+        } else {
+            ast.query_expr(if_expr.then_clause).typ
+        };
 
         ast.set_type(expr.id, typ);
     }

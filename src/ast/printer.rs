@@ -174,4 +174,25 @@ impl AstVisitor for AstPrinter {
         self.is_last = was_last;
         self.unindent();
     }
+
+    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &super::IfExpr, _expr: &Expr) {
+        self.append_keyword(&if_expr.keyword);
+
+        let was_last = self.is_last;
+        self.indent();
+
+        self.is_last = false;
+        self.visit_expr(ast, if_expr.condition);
+        if if_expr.else_clause.is_none() {
+            self.is_last = true;
+        }
+        self.visit_expr(ast, if_expr.then_clause);
+        if let Some(else_clause) = &if_expr.else_clause {
+            self.is_last = true;
+            self.visit_expr(ast, else_clause.body);
+        }
+
+        self.is_last = was_last;
+        self.unindent();
+    }
 }

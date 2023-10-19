@@ -1,8 +1,8 @@
 use crate::text::TextSpan;
 
 use super::{
-    AssignExpr, Ast, BinaryExpr, BlockExpr, BooleanExpr, Expr, ExprId, ExprKind, IntegerExpr,
-    ItemId, LetStmt, ParenExpr, Stmt, StmtId, UnaryExpr, VariableExpr,
+    AssignExpr, Ast, BinaryExpr, BlockExpr, BooleanExpr, Expr, ExprId, ExprKind, IfExpr,
+    IntegerExpr, ItemId, LetStmt, ParenExpr, Stmt, StmtId, UnaryExpr, VariableExpr,
 };
 
 pub trait AstVisitor {
@@ -45,6 +45,7 @@ pub trait AstVisitor {
             ExprKind::Variable(variable_expr) => {
                 self.visit_variable_expr(ast, &variable_expr, &expr)
             }
+            ExprKind::If(if_expr) => self.visit_if_expr(ast, &if_expr, &expr),
         }
     }
 
@@ -75,4 +76,6 @@ pub trait AstVisitor {
     }
 
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr);
+
+    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, expr: &Expr);
 }

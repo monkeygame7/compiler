@@ -22,6 +22,8 @@ pub enum TokenKind {
     Boolean(bool),
     Identifier,
     Let,
+    If,
+    Else,
 
     // int operators
     Plus,
@@ -175,6 +177,8 @@ impl<'a> Lexer<'a> {
             "true" => TokenKind::Boolean(true),
             "false" => TokenKind::Boolean(false),
             "let" => TokenKind::Let,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
             _ => TokenKind::Identifier,
         }
     }

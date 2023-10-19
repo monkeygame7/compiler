@@ -6,7 +6,8 @@ use std::{
 use crate::{
     ast::{
         visitor::AstVisitor, AssignExpr, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr,
-        BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt, UnaryExpr, UnaryOperatorKind, VariableExpr,
+        BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, Stmt, UnaryExpr, UnaryOperatorKind,
+        VariableExpr,
     },
     scope::VariableId,
     text::TextSpan,
@@ -95,6 +96,10 @@ impl AstVisitor for Evaluator {
             _ => Undefined,
         };
 
+        if result == Undefined {
+            unreachable!("Tried to evaluate invalid binary expression");
+        }
+
         self.last_result = Some(result);
     }
 
@@ -113,6 +118,10 @@ impl AstVisitor for Evaluator {
             },
             _ => Undefined,
         };
+
+        if result == Undefined {
+            unreachable!("Tried to evaluate invalid unary expression");
+        }
 
         self.last_result = Some(result);
     }
@@ -141,6 +150,21 @@ impl AstVisitor for Evaluator {
         self.scopes.push(HashMap::new());
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.pop().expect("Unexpected empty scopes");
+    }
+
+    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, _expr: &Expr) {
+        self.visit_expr(ast, if_expr.condition);
+        let condition = if let Some(ResultType::Boolean(b)) = self.last_result {
+            b
+        } else {
+            unreachable!("if condition evaluate to boolean");
+        };
+
+        if condition {
+            self.visit_expr(ast, if_expr.then_clause);
+        } else if let Some(else_clause) = &if_expr.else_clause {
+            self.visit_expr(ast, else_clause.body);
+        }
     }
 }
 
@@ -258,14 +282,12 @@ mod test {
     #[test]
     fn test_multiline() {
         let input = r#"
-        {
             let x = 5
             let y = 10
             let z = x + y
             x = x * 2
             y = x + y
             y + z
-        }
             "#;
         let expected = Integer(35);
         TestCase::run(input, expected);
@@ -330,6 +352,25 @@ mod test {
                  }",
                 11,
             ),
+            (
+                "
+                let x = 1
+                let y = 2
+                let z = 3
+                if x > y {
+                    z = -100
+                } else {
+                    if x == y {
+                        z = 0
+                    } else if y == 3 {
+                        z = 3
+                    } else {
+                        z = 4
+                    }
+                }
+                ",
+                4,
+            ),
         ];
         let bool_cases = vec![
             ("true", true),
@@ -385,6 +426,8 @@ mod test {
             "4 + [{
                 let x = 4
             }]",
+            "if [100] true else false",
+            "if true [let] [x] = 4",
         ];
 
         int_cases

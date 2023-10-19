@@ -4,8 +4,8 @@ use crate::diagnostics::DiagnosticBag;
 
 use super::{
     lexer::{Lexer, SyntaxToken, TokenKind},
-    Ast, BinaryOperator, BinaryOperatorKind, ExprId, ItemId, ItemKind, StmtId, UnaryOperator,
-    UnaryOperatorKind,
+    Ast, BinaryOperator, BinaryOperatorKind, ElseClause, ExprId, ItemId, ItemKind, StmtId,
+    UnaryOperator, UnaryOperatorKind,
 };
 
 pub struct Parser<'a> {
@@ -123,16 +123,9 @@ impl<'a> Parser<'a> {
         match (current_kind, next_kind) {
             (TokenKind::LeftCurly, _) => self.parse_block_expr(),
             (TokenKind::Identifier, TokenKind::Equals) => self.parse_assign_expr(),
+            (TokenKind::If, _) => self.parse_if_expr(),
             _ => self.parse_binary_expr(priority),
         }
-    }
-
-    fn parse_assign_expr(&mut self) -> ExprId {
-        let lhs = self.expect(TokenKind::Identifier);
-        let equals = self.expect(TokenKind::Equals);
-        let rhs = self.parse_expr(0);
-
-        self.ast.create_assign_expr(lhs, equals, rhs)
     }
 
     fn parse_block_expr(&mut self) -> ExprId {
@@ -145,6 +138,41 @@ impl<'a> Parser<'a> {
 
         let close_token = self.expect(TokenKind::RightCurly);
         self.ast.create_block_expr(open_token, stmts, close_token)
+    }
+
+    fn parse_assign_expr(&mut self) -> ExprId {
+        let lhs = self.expect(TokenKind::Identifier);
+        let equals = self.expect(TokenKind::Equals);
+        let rhs = self.parse_expr(0);
+
+        self.ast.create_assign_expr(lhs, equals, rhs)
+    }
+
+    fn parse_if_expr(&mut self) -> ExprId {
+        let identifier = self.expect(TokenKind::If);
+        let condition = self.parse_expr(0);
+        let then_clause = self.parse_expr(0);
+        let else_clause = self.parse_else_clause();
+
+        self.ast
+            .create_if_expr(identifier, condition, then_clause, else_clause)
+    }
+
+    fn parse_else_clause(&mut self) -> Option<ElseClause> {
+        if self.current().kind == TokenKind::Else {
+            let identifier = self.expect(TokenKind::Else);
+            let body = self.parse_expr(0);
+            let body_span = self.ast.query_expr(body).span;
+            let span = identifier.span.to(body_span);
+
+            Some(ElseClause {
+                keyword: identifier,
+                body,
+                span,
+            })
+        } else {
+            None
+        }
     }
 
     fn parse_binary_expr(&mut self, priority: usize) -> ExprId {
@@ -373,6 +401,10 @@ mod test {
             _assign_expr: &crate::ast::AssignExpr,
             _expr: &Expr,
         ) {
+            todo!()
+        }
+
+        fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &crate::ast::IfExpr, expr: &Expr) {
             todo!()
         }
     }
