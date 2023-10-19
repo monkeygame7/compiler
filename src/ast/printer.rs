@@ -88,72 +88,52 @@ impl AstVisitor for AstPrinter {
     fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &super::AssignExpr, _expr: &Expr) {
         self.append_operator("=");
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = false;
-        self.append_item(assign_expr.identifier.to_string().green());
-        self.is_last = true;
-        self.visit_expr(ast, assign_expr.rhs);
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.append_item(assign_expr.identifier.to_string().green());
+            printer.is_last = true;
+            printer.visit_expr(ast, assign_expr.rhs);
+        });
     }
 
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, _expr: &Expr) {
         self.append_structural("paren");
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = true;
-        self.visit_expr(ast, paren_expr.expr);
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = true;
+            printer.visit_expr(ast, paren_expr.expr);
+        });
     }
 
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
         self.append_operator(&binary_expr.operator.token);
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = false;
-        self.visit_expr(ast, binary_expr.left);
-        self.is_last = true;
-        self.visit_expr(ast, binary_expr.right);
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.visit_expr(ast, binary_expr.left);
+            printer.is_last = true;
+            printer.visit_expr(ast, binary_expr.right);
+        });
     }
 
     fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
         self.append_operator(&unary_expr.operator.token);
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = true;
-        self.visit_expr(ast, unary_expr.operand);
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = true;
+            printer.visit_expr(ast, unary_expr.operand);
+        });
     }
 
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, _expr: &Expr) {
         self.append_structural("block");
 
-        let was_last = self.is_last;
-        self.indent();
-
-        for (idx, stmt) in block_expr.stmts.iter().enumerate() {
-            self.is_last = idx == block_expr.stmts.len() - 1;
-            self.visit_stmt(ast, *stmt);
-        }
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            for (idx, stmt) in block_expr.stmts.iter().enumerate() {
+                printer.is_last = idx == block_expr.stmts.len() - 1;
+                printer.visit_stmt(ast, *stmt);
+            }
+        });
     }
 
     fn visit_variable_expr(&mut self, _ast: &mut Ast, variable_expr: &VariableExpr, _expr: &Expr) {
@@ -163,36 +143,49 @@ impl AstVisitor for AstPrinter {
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
         self.append_keyword(&let_stmt.keyword);
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = false;
-        self.append_item(&let_stmt.identifier.literal.green());
-        self.is_last = true;
-        self.visit_expr(ast, let_stmt.initial);
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.append_item(&let_stmt.identifier.literal.green());
+            printer.is_last = true;
+            printer.visit_expr(ast, let_stmt.initial);
+        });
     }
 
-    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &super::IfExpr, _expr: &Expr) {
+    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &super::Stmt) {
+        self.append_keyword(&while_stmt.keyword);
+
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.visit_expr(ast, while_stmt.condition);
+            printer.is_last = true;
+            printer.visit_expr(ast, while_stmt.body);
+        });
+    }
+
+    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, _expr: &Expr) {
         self.append_keyword(&if_expr.keyword);
 
-        let was_last = self.is_last;
-        self.indent();
-
-        self.is_last = false;
-        self.visit_expr(ast, if_expr.condition);
-        if if_expr.else_clause.is_none() {
-            self.is_last = true;
-        }
-        self.visit_expr(ast, if_expr.then_clause);
-        if let Some(else_clause) = &if_expr.else_clause {
-            self.is_last = true;
-            self.visit_expr(ast, else_clause.body);
-        }
-
-        self.is_last = was_last;
-        self.unindent();
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.visit_expr(ast, if_expr.condition);
+            if if_expr.else_clause.is_none() {
+                printer.is_last = true;
+            }
+            printer.visit_expr(ast, if_expr.then_clause);
+            if let Some(else_clause) = &if_expr.else_clause {
+                printer.is_last = true;
+                printer.visit_expr(ast, else_clause.body);
+            }
+        });
     }
+}
+
+fn nested(printer: &mut AstPrinter, mut func: impl FnMut(&mut AstPrinter)) {
+    let was_last = printer.is_last;
+    printer.indent();
+
+    func(&mut *printer);
+
+    printer.unindent();
+    printer.is_last = was_last;
 }
