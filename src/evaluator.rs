@@ -7,7 +7,7 @@ use crate::{
     ast::{
         visitor::AstVisitor, AssignExpr, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr,
         BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, Stmt, UnaryExpr, UnaryOperatorKind,
-        VariableExpr,
+        VariableExpr, WhileStmt,
     },
     scope::VariableId,
     text::TextSpan,
@@ -24,6 +24,13 @@ pub enum ResultType {
     Boolean(bool),
     Void,
     Undefined,
+}
+
+impl ResultType {
+    fn to_bool(self) -> bool {
+        let Boolean(b) = self else { panic!("expected bool") };
+        b
+    }
 }
 
 impl Display for ResultType {
@@ -144,6 +151,18 @@ impl AstVisitor for Evaluator {
         assert!(!&last_scope.contains_key(&let_stmt.variable));
         last_scope.insert(let_stmt.variable, value);
         self.last_result = Some(Void);
+    }
+
+    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
+        loop {
+            self.visit_expr(ast, while_stmt.condition);
+            let condition = self.last_result.unwrap().to_bool();
+            if !condition {
+                break;
+            }
+
+            self.visit_expr(ast, while_stmt.body);
+        }
     }
 
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
@@ -371,6 +390,24 @@ mod test {
                 ",
                 4,
             ),
+            (
+                "
+                let x = 0
+                let result = 0
+                while x < 100 {
+                  if x < 20 {
+                    result = result + x
+                  } else if x <= 50 {
+                    result = result + x / 2
+                  } else {
+                    result = result + 1
+                  }
+                  x = x + 1
+                }
+                result
+                ",
+                774,
+            ),
         ];
         let bool_cases = vec![
             ("true", true),
@@ -428,6 +465,7 @@ mod test {
             }]",
             "if [100] true else false",
             "if true [let] [x] = 4",
+            "while [1] {}",
         ];
 
         int_cases

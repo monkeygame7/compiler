@@ -129,6 +129,23 @@ impl Ast {
         )
     }
 
+    fn create_while_stmt(
+        &mut self,
+        keyword: SyntaxToken,
+        condition: ExprId,
+        body: ExprId,
+    ) -> StmtId {
+        let span = keyword.span.to(self.query_expr(body).span);
+        self.create_stmt(
+            StmtKind::While(WhileStmt {
+                keyword,
+                condition,
+                body,
+            }),
+            span,
+        )
+    }
+
     fn create_error_expr(&mut self, span: TextSpan) -> ExprId {
         self.create_expr(ExprKind::Error(span), span)
     }
@@ -287,6 +304,7 @@ impl Stmt {
 pub enum StmtKind {
     Expr(ExprId),
     Let(LetStmt),
+    While(WhileStmt),
 }
 
 #[derive(Debug, Clone)]
@@ -296,6 +314,13 @@ pub struct LetStmt {
     pub variable: VariableId,
     pub equals_token: SyntaxToken,
     pub initial: ExprId,
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStmt {
+    pub keyword: SyntaxToken,
+    pub condition: ExprId,
+    pub body: ExprId,
 }
 
 #[derive(Debug, Clone)]

@@ -95,6 +95,7 @@ impl<'a> Parser<'a> {
     fn parse_stmt(&mut self) -> StmtId {
         let id = match self.current().kind {
             TokenKind::Let => self.parse_let_stmt(),
+            TokenKind::While => self.parse_while_stmt(),
             _ => self.parse_expr_stmt(),
         };
 
@@ -115,6 +116,14 @@ impl<'a> Parser<'a> {
 
         self.ast
             .create_let_stmt(keyword, identifier, equals_token, expr)
+    }
+
+    fn parse_while_stmt(&mut self) -> StmtId {
+        let keyword = self.expect(TokenKind::While);
+        let condition = self.parse_expr(0);
+        let body = self.parse_expr(0);
+
+        self.ast.create_while_stmt(keyword, condition, body)
     }
 
     fn parse_expr(&mut self, priority: usize) -> ExprId {
@@ -405,6 +414,15 @@ mod test {
         }
 
         fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &crate::ast::IfExpr, expr: &Expr) {
+            todo!()
+        }
+
+        fn visit_while_stmt(
+            &mut self,
+            ast: &mut Ast,
+            while_stmt: &crate::ast::WhileStmt,
+            stmt: &Stmt,
+        ) {
             todo!()
         }
     }

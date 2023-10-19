@@ -4,7 +4,7 @@ use crate::{
     ast::{
         lexer::Lexer, parser::Parser, visitor::AstVisitor, AssignExpr, Ast, BinaryExpr,
         BinaryOperatorKind, BlockExpr, BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, ParenExpr,
-        Stmt, StmtKind, UnaryExpr, UnaryOperatorKind, VariableExpr,
+        Stmt, StmtKind, UnaryExpr, UnaryOperatorKind, VariableExpr, WhileStmt,
     },
     diagnostics::DiagnosticBag,
     scope::{GlobalScope, Scopes},
@@ -125,6 +125,15 @@ impl AstVisitor for Resolver {
                 .diagnostics
                 .report_already_declared(&let_stmt.identifier),
         }
+    }
+
+    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, stmt: &Stmt) {
+        self.visit_expr(ast, while_stmt.condition);
+
+        let condition = ast.query_expr(while_stmt.condition);
+        self.expect_type(Type::Bool, condition.typ, condition.span);
+
+        self.visit_expr(ast, while_stmt.body);
     }
 
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {

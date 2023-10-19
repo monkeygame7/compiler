@@ -2,7 +2,8 @@ use crate::text::TextSpan;
 
 use super::{
     AssignExpr, Ast, BinaryExpr, BlockExpr, BooleanExpr, Expr, ExprId, ExprKind, IfExpr,
-    IntegerExpr, ItemId, LetStmt, ParenExpr, Stmt, StmtId, UnaryExpr, VariableExpr,
+    IntegerExpr, ItemId, LetStmt, ParenExpr, Stmt, StmtId, StmtKind, UnaryExpr, VariableExpr,
+    WhileStmt,
 };
 
 pub trait AstVisitor {
@@ -16,8 +17,9 @@ pub trait AstVisitor {
     fn visit_stmt(&mut self, ast: &mut Ast, stmt: StmtId) {
         let stmt = ast.query_stmt(stmt).clone();
         match &stmt.kind {
-            super::StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
-            super::StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
+            StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
+            StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
+            StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
         }
     }
 
@@ -26,6 +28,8 @@ pub trait AstVisitor {
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt);
+
+    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, stmt: &Stmt);
 
     fn visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
         let expr = ast.query_expr(expr).clone();

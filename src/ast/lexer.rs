@@ -24,6 +24,7 @@ pub enum TokenKind {
     Let,
     If,
     Else,
+    While,
 
     // int operators
     Plus,
@@ -179,6 +180,7 @@ impl<'a> Lexer<'a> {
             "let" => TokenKind::Let,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
+            "while" => TokenKind::While,
             _ => TokenKind::Identifier,
         }
     }

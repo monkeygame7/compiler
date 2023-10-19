@@ -3,8 +3,8 @@ use std::fmt::Display;
 use colored::Colorize;
 
 use super::{
-    lexer::SyntaxToken, visitor::AstVisitor, Ast, BinaryExpr, BlockExpr, Expr, IntegerExpr,
-    ParenExpr, UnaryExpr, VariableExpr,
+    lexer::SyntaxToken, visitor::AstVisitor, Ast, BinaryExpr, BlockExpr, Expr, IfExpr, IntegerExpr,
+    ParenExpr, UnaryExpr, VariableExpr, WhileStmt,
 };
 
 pub struct AstPrinter {
