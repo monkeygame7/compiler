@@ -282,8 +282,8 @@ mod test {
 
     use crate::{
         ast::{
-            visitor::AstVisitor, BinaryExpr, BooleanExpr, Expr, IntegerExpr, LetStmt, Stmt,
-            UnaryExpr, VariableExpr,
+            visitor::AstVisitor, AssignExpr, BinaryExpr, BooleanExpr, Expr, IntegerExpr, LetStmt,
+            Stmt, UnaryExpr, VariableExpr,
         },
         text::SourceText,
     };
@@ -404,12 +404,7 @@ mod test {
                 .push(Matcher::Ident(variable_expr.token.literal.clone()));
         }
 
-        fn visit_assign_expr(
-            &mut self,
-            _ast: &mut Ast,
-            _assign_expr: &crate::ast::AssignExpr,
-            _expr: &Expr,
-        ) {
+        fn visit_assign_expr(&mut self, _ast: &mut Ast, _assign_expr: &AssignExpr, _expr: &Expr) {
             todo!()
         }
 
