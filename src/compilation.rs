@@ -3,8 +3,9 @@ use std::{fmt::Display, rc::Rc};
 use crate::{
     ast::{
         lexer::Lexer, parser::Parser, visitor::AstVisitor, AssignExpr, Ast, BinaryExpr,
-        BinaryOperatorKind, BlockExpr, BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, ParenExpr,
-        Stmt, StmtKind, UnaryExpr, UnaryOperatorKind, VariableExpr, WhileStmt,
+        BinaryOperator, BinaryOperatorKind, BlockExpr, BooleanExpr, Expr, IfExpr, IntegerExpr,
+        LetStmt, ParenExpr, Stmt, StmtKind, UnaryExpr, UnaryOperator, UnaryOperatorKind,
+        VariableExpr, WhileStmt,
     },
     diagnostics::DiagnosticBag,
     scope::{GlobalScope, Scopes},
@@ -67,18 +68,21 @@ impl Resolver {
         }
     }
 
-    pub fn expect_type(&self, expected: Type, actual: Type, span: TextSpan) -> Type {
+    pub fn expect_type(&self, expected: Type, actual: Type, span: TextSpan) {
         // ignore if type is unresolved because that indicates type binding failed, which should
         // have already been reported as another error
         if expected != actual && actual != Type::Unresolved {
             self.diagnostics
                 .report_unexpected_type(expected, actual, span);
         }
-        expected
     }
 
-    fn resolve_binary_expr(&self, op: BinaryOperatorKind, left: &Expr, right: &Expr) -> Type {
-        let (expected_left, expected_right, result) = match op {
+    fn resolve_binary_expr(&self, op: &BinaryOperator, left: &Expr, right: &Expr) -> Type {
+        if left.typ == Type::Unresolved || right.typ == Type::Unresolved {
+            return Type::Unresolved;
+        }
+
+        let (expected_left, expected_right, result) = match op.kind {
             BinaryOperatorKind::Add => (Type::Int, Type::Int, Type::Int),
             BinaryOperatorKind::Subtract => (Type::Int, Type::Int, Type::Int),
             BinaryOperatorKind::Mulitply => (Type::Int, Type::Int, Type::Int),
@@ -94,21 +98,34 @@ impl Resolver {
             BinaryOperatorKind::GreaterThan => (Type::Int, Type::Int, Type::Bool),
             BinaryOperatorKind::GreaterThanOrEquals => (Type::Int, Type::Int, Type::Bool),
         };
-        self.expect_type(expected_left, left.typ, left.span);
-        self.expect_type(expected_right, right.typ, right.span);
 
-        result
+        if left.typ != expected_left || right.typ != expected_right {
+            self.diagnostics
+                .report_unsupported_binary_operator(left.typ, op, right.typ);
+            Type::Unresolved
+        } else {
+            result
+        }
     }
 
-    fn resolve_unary_expr(&self, op: UnaryOperatorKind, operand: &Expr) -> Type {
-        let (expected_operand, result) = match op {
+    fn resolve_unary_expr(&self, op: &UnaryOperator, operand: &Expr) -> Type {
+        if operand.typ == Type::Unresolved {
+            return Type::Unresolved;
+        }
+
+        let (expected_operand, result) = match op.kind {
             UnaryOperatorKind::Identity => (Type::Int, Type::Int),
             UnaryOperatorKind::Negate => (Type::Int, Type::Int),
             UnaryOperatorKind::LogicalNot => (Type::Bool, Type::Bool),
         };
-        self.expect_type(expected_operand, operand.typ, operand.span);
 
-        result
+        if operand.typ != expected_operand {
+            self.diagnostics
+                .report_unsupported_unary_operator(op, operand.typ);
+            Type::Unresolved
+        } else {
+            result
+        }
     }
 }
 
@@ -180,7 +197,7 @@ impl AstVisitor for Resolver {
         let left = ast.query_expr(binary_expr.left);
         let right = ast.query_expr(binary_expr.right);
 
-        let typ = self.resolve_binary_expr(binary_expr.operator.kind, left, right);
+        let typ = self.resolve_binary_expr(&binary_expr.operator, left, right);
 
         ast.set_type(expr.id, typ);
     }
@@ -189,7 +206,7 @@ impl AstVisitor for Resolver {
         self.visit_expr(ast, unary_expr.operand);
         let operand = ast.query_expr(unary_expr.operand);
 
-        let typ = self.resolve_unary_expr(unary_expr.operator.kind, operand);
+        let typ = self.resolve_unary_expr(&unary_expr.operator, operand);
 
         ast.set_type(expr.id, typ);
     }

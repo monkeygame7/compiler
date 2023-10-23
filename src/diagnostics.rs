@@ -4,7 +4,10 @@ use std::{
 };
 
 use crate::{
-    ast::lexer::{SyntaxToken, TokenKind},
+    ast::{
+        lexer::{SyntaxToken, TokenKind},
+        BinaryOperator, UnaryOperator,
+    },
     compilation::Type,
     text::TextSpan,
 };
@@ -70,28 +73,22 @@ impl DiagnosticBag {
     pub fn report_unsupported_binary_operator(
         &self,
         l_type: impl Debug,
-        op: impl Display,
+        op: &BinaryOperator,
         r_type: impl Debug,
-        span: TextSpan,
     ) {
         self.add_message(
             format!(
                 "'{}' is not supported between '{:?}' and '{:?}'",
                 op, l_type, r_type
             ),
-            span,
+            op.token.span,
         );
     }
 
-    pub fn report_unsupported_unary_operator(
-        &self,
-        operator: impl Display,
-        exp_type: impl Display,
-        span: TextSpan,
-    ) {
+    pub fn report_unsupported_unary_operator(&self, op: &UnaryOperator, operand_type: impl Debug) {
         self.add_message(
-            format!("'{}' is not a supported for '{}'", operator, exp_type),
-            span,
+            format!("'{}' is not a supported for '{:?}'", op, operand_type),
+            op.token.span,
         );
     }
 
@@ -107,10 +104,6 @@ impl DiagnosticBag {
             format!("'{}' is already defined in this scope", token),
             token.span,
         )
-    }
-
-    pub fn report_invalid_expression(&self, span: TextSpan) {
-        self.add_message("Expression is not valid".to_string(), span);
     }
 }
 
