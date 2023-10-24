@@ -2,10 +2,9 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use super::{
-    lexer::SyntaxToken, visitor::AstVisitor, Ast, BinaryExpr, BlockExpr, Expr, IfExpr, IntegerExpr,
-    ParenExpr, UnaryExpr, VariableExpr, WhileStmt,
-};
+use crate::{diagnostics::TextSpan, parsing::SyntaxToken};
+
+use super::{nodes::*, visitor::AstVisitor, Ast};
 
 pub struct AstPrinter {
     indent: Vec<&'static str>,
@@ -73,7 +72,7 @@ impl AstPrinter {
 }
 
 impl AstVisitor for AstPrinter {
-    fn visit_error(&mut self, _ast: &mut Ast, _span: &crate::text::TextSpan, _expr: &Expr) {
+    fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
         self.append_item("(ERROR)".red());
     }
 

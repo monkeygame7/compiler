@@ -1,21 +1,19 @@
+mod ast;
+
+mod compilation;
+mod diagnostics;
+mod evaluator;
+mod parsing;
+
 use colored::Colorize;
 use compilation::CompilationUnit;
 use diagnostics::DiagnosticBag;
+use diagnostics::SourceText;
+use evaluator::Evaluator;
 use std::{
     io::{self, Write},
     rc::Rc,
 };
-use text::SourceText;
-
-use crate::evaluator::Evaluator;
-
-mod ast;
-mod compilation;
-mod diagnostics;
-mod evaluator;
-mod id;
-mod scope;
-mod text;
 
 fn main() -> io::Result<()> {
     let mut show_tree = false;

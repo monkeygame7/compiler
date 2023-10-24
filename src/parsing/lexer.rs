@@ -1,8 +1,7 @@
+use crate::diagnostics::{SourceText, TextSpan};
 use std::fmt::Display;
 
 use ascii::{AsciiChar, AsciiString};
-
-use crate::text::{SourceText, TextSpan};
 
 pub struct Lexer<'a> {
     src: &'a SourceText,

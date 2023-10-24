@@ -4,13 +4,9 @@ use std::{
 };
 
 use crate::{
-    ast::{
-        visitor::AstVisitor, AssignExpr, Ast, BinaryExpr, BinaryOperatorKind, BlockExpr,
-        BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, Stmt, UnaryExpr, UnaryOperatorKind,
-        VariableExpr, WhileStmt,
-    },
-    scope::VariableId,
-    text::TextSpan,
+    ast::{nodes::*, Ast, AstVisitor},
+    compilation::VariableId,
+    diagnostics::TextSpan,
 };
 
 pub struct Evaluator {

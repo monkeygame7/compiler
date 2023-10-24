@@ -1,8 +1,8 @@
 use crate::{
-    ast::lexer::SyntaxToken,
+    ast::{Idx, IdxVec},
     compilation::Type,
-    id::{Idx, IdxVec},
     idx,
+    parsing::SyntaxToken,
 };
 
 idx!(FunctionId);
@@ -38,14 +38,14 @@ impl GlobalScope {
 #[derive(Debug)]
 pub struct LocalScope {
     variables: Vec<VariableId>,
-    function: Option<FunctionId>,
+    _function: Option<FunctionId>,
 }
 
 impl LocalScope {
     pub fn new(function: Option<FunctionId>) -> Self {
         Self {
             variables: Vec::new(),
-            function,
+            _function: function,
         }
     }
 }

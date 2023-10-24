@@ -1,16 +1,11 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    ast::{
-        lexer::Lexer, parser::Parser, visitor::AstVisitor, AssignExpr, Ast, BinaryExpr,
-        BinaryOperator, BinaryOperatorKind, BlockExpr, BooleanExpr, Expr, IfExpr, IntegerExpr,
-        LetStmt, ParenExpr, Stmt, StmtKind, UnaryExpr, UnaryOperator, UnaryOperatorKind,
-        VariableExpr, WhileStmt,
-    },
-    diagnostics::DiagnosticBag,
-    scope::{GlobalScope, Scopes},
-    text::{SourceText, TextSpan},
+    ast::{nodes::*, Ast, AstVisitor},
+    diagnostics::{DiagnosticBag, TextSpan},
 };
+
+use super::scope::Scopes;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
@@ -20,48 +15,13 @@ pub enum Type {
     Void,
 }
 
-pub struct CompilationUnit {
-    pub src: SourceText,
-    pub ast: Ast,
-    pub diagnostics: Rc<DiagnosticBag>,
-    scope: GlobalScope,
-}
-
-impl CompilationUnit {
-    pub fn compile(text: &str, print_tree: bool) -> Result<Self, (SourceText, Rc<DiagnosticBag>)> {
-        let src = SourceText::from(text).unwrap();
-        let diagnostics = Rc::new(DiagnosticBag::new());
-
-        let lexer = Lexer::new(&src);
-        let mut ast = Parser::parse(lexer, diagnostics.clone());
-
-        let mut resolver = Resolver::new(diagnostics.clone());
-        ast.visit(&mut resolver);
-
-        if print_tree {
-            ast.print();
-        }
-
-        if diagnostics.has_errors() {
-            Err((src, diagnostics))
-        } else {
-            Ok(CompilationUnit {
-                src,
-                ast,
-                diagnostics,
-                scope: resolver.scopes.global_scope,
-            })
-        }
-    }
-}
-
 pub struct Resolver {
     diagnostics: Rc<DiagnosticBag>,
-    scopes: Scopes,
+    pub scopes: Scopes,
 }
 
 impl Resolver {
-    fn new(diagnostics: Rc<DiagnosticBag>) -> Self {
+    pub fn new(diagnostics: Rc<DiagnosticBag>) -> Self {
         Resolver {
             diagnostics,
             scopes: Scopes::new(),
@@ -77,7 +37,7 @@ impl Resolver {
         }
     }
 
-    fn resolve_binary_expr(&self, op: &BinaryOperator, left: &Expr, right: &Expr) -> Type {
+    pub fn resolve_binary_expr(&self, op: &BinaryOperator, left: &Expr, right: &Expr) -> Type {
         if left.typ == Type::Unresolved || right.typ == Type::Unresolved {
             return Type::Unresolved;
         }
@@ -108,7 +68,7 @@ impl Resolver {
         }
     }
 
-    fn resolve_unary_expr(&self, op: &UnaryOperator, operand: &Expr) -> Type {
+    pub fn resolve_unary_expr(&self, op: &UnaryOperator, operand: &Expr) -> Type {
         if operand.typ == Type::Unresolved {
             return Type::Unresolved;
         }

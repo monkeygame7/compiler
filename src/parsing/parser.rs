@@ -1,12 +1,17 @@
 use std::rc::Rc;
 
-use crate::diagnostics::DiagnosticBag;
-
-use super::{
-    lexer::{Lexer, SyntaxToken, TokenKind},
-    Ast, BinaryOperator, BinaryOperatorKind, ElseClause, ExprId, ItemId, ItemKind, StmtId,
-    UnaryOperator, UnaryOperatorKind,
+use crate::{
+    ast::{
+        nodes::{
+            BinaryOperator, BinaryOperatorKind, ElseClause, ItemKind, UnaryOperator,
+            UnaryOperatorKind,
+        },
+        Ast, ExprId, ItemId, StmtId,
+    },
+    diagnostics::DiagnosticBag,
 };
+
+use super::{Lexer, SyntaxToken, TokenKind};
 
 pub struct Parser<'a> {
     ast: &'a mut Ast,
@@ -282,10 +287,13 @@ mod test {
 
     use crate::{
         ast::{
-            visitor::AstVisitor, AssignExpr, BinaryExpr, BooleanExpr, Expr, IntegerExpr, LetStmt,
-            Stmt, UnaryExpr, VariableExpr,
+            nodes::{
+                AssignExpr, BinaryExpr, BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, Stmt,
+                UnaryExpr, VariableExpr, WhileStmt,
+            },
+            AstVisitor,
         },
-        text::SourceText,
+        diagnostics::{SourceText, TextSpan},
     };
 
     use super::*;
@@ -371,7 +379,7 @@ mod test {
             self.visit_expr(ast, let_stmt.initial);
         }
 
-        fn visit_error(&mut self, _ast: &mut Ast, _span: &crate::text::TextSpan, _expr: &Expr) {
+        fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
             self.nodes.push(Matcher::Bad);
         }
 
@@ -408,16 +416,11 @@ mod test {
             todo!()
         }
 
-        fn visit_if_expr(&mut self, _ast: &mut Ast, _if_expr: &crate::ast::IfExpr, _expr: &Expr) {
+        fn visit_if_expr(&mut self, _ast: &mut Ast, _if_expr: &IfExpr, _expr: &Expr) {
             todo!()
         }
 
-        fn visit_while_stmt(
-            &mut self,
-            _ast: &mut Ast,
-            _while_stmt: &crate::ast::WhileStmt,
-            _stmt: &Stmt,
-        ) {
+        fn visit_while_stmt(&mut self, _ast: &mut Ast, _while_stmt: &WhileStmt, _stmt: &Stmt) {
             todo!()
         }
     }
