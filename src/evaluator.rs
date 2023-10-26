@@ -245,7 +245,7 @@ mod test {
         }
 
         fn evaluate(&self, expected_result: ResultType) {
-            let compilation = CompilationUnit::compile(&self.actual_input, true);
+            let compilation = CompilationUnit::compile(&self.actual_input, false);
             match compilation {
                 Ok(mut unit) => {
                     let result = Evaluator::evaluate(&mut unit.ast);
@@ -432,17 +432,17 @@ mod test {
             "[$]",
             "[x] + 4",
             "(1 + 2[]",
-            "-[true]",
+            "[-]true",
             "13 [@]",
-            "[4] && [5]",
-            "1 + [true]",
-            "[true] + [false]",
+            "4 [&&] 5",
+            "1 [+] true",
+            "true [+] false",
             "([$] + 2) - 4",
             "([$]) + 4",
             "[foo] + [bar]",
             "1 + [let] [x] = 4",
-            "[true] & [false]",
-            "[true] | [false]",
+            "true [&] false",
+            "true [|] false",
             "let x = 4 + {
                 let x = 2 - {
                     let y = {
@@ -455,10 +455,16 @@ mod test {
             "let x = {
                 let y = 4
             }
-            [x] + 5",
-            "4 + [{
+            x [+] 5",
+            "4 [+] {
                 let x = 4
-            }]",
+            }",
+            "{
+                let x = 4
+                x = [{
+                    4 < 3
+                }]
+            }",
             "if [100] true else false",
             "if true [let] [x] = 4",
             "while [1] {}",
