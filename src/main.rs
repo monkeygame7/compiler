@@ -74,15 +74,20 @@ fn print_diagnostics(diagnostics: Rc<DiagnosticBag>, src: &SourceText) {
         .collect::<Vec<_>>();
     diagnostics.sort_by(|a, b| a.span.start.partial_cmp(&b.span.start).unwrap());
     for error in diagnostics {
-        let line = src.get_line(error.span.start);
-        let span = src.relative_span(error.span);
+        let line_num = src.get_line_number(error.span.start);
+        let line = src.get_line(line_num);
+        let span = src.relative_span(error.span, line_num);
         println!("{}", error.to_string().red());
         if line.len() > 0 {
-            let pre = &line[..span.start].trim_start();
+            let pre = &line[..span.start];
             let highlight = &line[span.start..span.end].to_string().red();
             let post = &line[span.end..].trim_end();
-            // TODO: Include line number in output
-            println!("{}{}{}\n", pre, highlight, post);
+            let col_num = span.start + 1;
+            // start with blank space so it aligns with the line symbols
+            println!(
+                " ({}, {}):\n{}{}{}\n",
+                line_num, col_num, pre, highlight, post
+            );
         }
     }
     println!();

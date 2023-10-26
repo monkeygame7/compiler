@@ -55,8 +55,9 @@ impl SourceText {
         self.text.chars()
     }
 
-    pub fn relative_span(&self, original: TextSpan) -> TextSpan {
-        let line = self.get_text_line(original.start);
+    pub fn relative_span(&self, original: TextSpan, line_num: usize) -> TextSpan {
+        assert!(line_num > 0, "Line numbers must start at 1");
+        let line = &self.lines[line_num - 1];
         TextSpan::new(original.start - line.start, original.end - line.start)
     }
 
@@ -91,7 +92,7 @@ impl SourceText {
         lines
     }
 
-    fn get_text_line(&self, pos: usize) -> &TextLine {
+    pub fn get_line_number(&self, pos: usize) -> usize {
         let mut lower = 0;
         let mut upper = self.lines.len() - 1;
 
@@ -105,16 +106,17 @@ impl SourceText {
             } else if line.end_with_line_break() - 1 < pos {
                 lower = middle + 1;
             } else {
-                return line;
+                return middle + 1;
             }
         }
 
-        // was not found, just return the last line
-        &self.lines[self.lines.len() - 1]
+        // was not found, just return the last index
+        self.lines.len()
     }
 
-    pub fn get_line(&self, pos: usize) -> &AsciiStr {
-        let line = self.get_text_line(pos);
+    pub fn get_line(&self, line_num: usize) -> &AsciiStr {
+        assert!(line_num > 0, "Line numbers must start at 1");
+        let line = &self.lines[line_num - 1];
         return &self.text[line.start..line.end()];
     }
 }
@@ -223,7 +225,7 @@ no line"#;
             should find
 
             any char in any
-            line
+            line\r\ncarriageline
 
             edge"#;
 
@@ -233,8 +235,9 @@ no line"#;
         let mut base = 0;
         for line in lines {
             for (pos, _) in line.char_indices() {
+                let line_num = src.get_line_number(base + pos);
                 assert_eq!(
-                    src.get_line(base + pos),
+                    src.get_line(line_num),
                     line,
                     "failed to find line for pos {}",
                     pos
