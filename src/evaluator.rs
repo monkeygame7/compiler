@@ -251,7 +251,7 @@ mod test {
                     let result = Evaluator::evaluate(&mut unit.ast);
                     assert!(
                         self.expected_spans.is_empty(),
-                        "Expected errors in '{}' but found none",
+                        "Expected errors in \n{}\nbut found none\n",
                         self.input
                     );
                     assert_eq!(result, expected_result, "{}", self.input);
@@ -271,7 +271,7 @@ mod test {
                         .collect();
                     assert!(
                         self.expected_spans.len() > 0,
-                        "Expected no errors in '{}' but found:\n{:?}",
+                        "Expected no errors in \n{}\nbut found:\n{:?}\n",
                         self.input,
                         messages,
                     );
@@ -279,7 +279,7 @@ mod test {
                     errors.sort();
                     assert_eq!(
                         errors, self.expected_spans,
-                        "Unexpected errors in '{}':\n{:?}",
+                        "Unexpected errors in \n{}\n{:?}\n",
                         self.input, messages
                     );
                 }
@@ -468,6 +468,7 @@ mod test {
             "if [100] true else false",
             "if true [let] [x] = 4",
             "while [1] {}",
+            "if true 1 else [false]",
         ];
 
         int_cases
