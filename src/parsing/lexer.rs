@@ -393,6 +393,7 @@ mod test {
             (")", RightParenthesis),
             ("{", LeftCurly),
             ("}", RightCurly),
+            (":", Colon),
             ("1", Integer(1)),
             ("123", Integer(123)),
             ("true", Boolean(true)),
