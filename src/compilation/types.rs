@@ -28,16 +28,18 @@ impl Resolver {
         }
     }
 
-    pub fn expect_type(&self, expected: &Type, actual: &Type, span: TextSpan) {
+    pub fn expect_type(&self, expected: &Type, actual: &Type, span: TextSpan) -> Type {
         // ignore if type is unresolved because that indicates type binding failed, which should
         // have already been reported as another error
         if expected != actual && *actual != Type::Unresolved {
             self.diagnostics
                 .report_unexpected_type(&expected, actual, span);
         }
+        expected.clone()
     }
 
     pub fn resolve_binary_expr(&self, op: &BinaryOperator, left: &Expr, right: &Expr) -> Type {
+        // this might be aggressive
         if left.typ == Type::Unresolved || right.typ == Type::Unresolved {
             return Type::Unresolved;
         }
@@ -92,10 +94,23 @@ impl Resolver {
 impl AstVisitor for Resolver {
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
-        let intial_expr = ast.query_expr(let_stmt.initial);
-        let var = self
-            .scopes
-            .declare_variable(&let_stmt.identifier, intial_expr.typ.clone());
+        let initial_expr = ast.query_expr(let_stmt.initial);
+
+        let typ = let_stmt
+            .type_decl
+            .as_ref()
+            .and_then(|d| match d.typ.literal.as_str() {
+                "int" => Some(Type::Int),
+                "bool" => Some(Type::Bool),
+                _ => {
+                    self.diagnostics.report_undefined_type(&d.typ);
+                    None
+                }
+            })
+            .map(|typ| self.expect_type(&typ, &initial_expr.typ, initial_expr.span))
+            .unwrap_or_else(|| initial_expr.typ.clone());
+
+        let var = self.scopes.declare_variable(&let_stmt.identifier, typ);
         match var {
             Some(var) => ast.set_variable_for_stmt(var, stmt.id),
             None => self
@@ -138,17 +153,17 @@ impl AstVisitor for Resolver {
         let typ = match var {
             Some(var) => {
                 let rhs_expr = ast.query_expr(assign_expr.rhs);
-                self.expect_type(&var.typ, &rhs_expr.typ, rhs_expr.span);
+                let typ = self.expect_type(&var.typ, &rhs_expr.typ, rhs_expr.span);
                 ast.set_variable_for_expr(var.id, expr.id);
-                &var.typ
+                typ
             }
             None => {
                 self.diagnostics
                     .report_identifier_not_found(&assign_expr.identifier);
-                &ast.query_expr(assign_expr.rhs).typ
+                ast.query_expr(assign_expr.rhs).typ.clone()
             }
         };
-        ast.set_type(expr.id, typ.clone());
+        ast.set_type(expr.id, typ);
     }
 
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{
     ast::{
         nodes::{
-            BinaryOperator, BinaryOperatorKind, ElseClause, ItemKind, UnaryOperator,
+            BinaryOperator, BinaryOperatorKind, ElseClause, ItemKind, TypeDecl, UnaryOperator,
             UnaryOperatorKind,
         },
         Ast, ExprId, ItemId, StmtId,
@@ -116,11 +116,12 @@ impl<'a> Parser<'a> {
     fn parse_let_stmt(&mut self) -> StmtId {
         let keyword = self.expect(TokenKind::Let);
         let identifier = self.expect(TokenKind::Identifier);
+        let type_decl = self.parse_optional_type_decl();
         let equals_token = self.expect(TokenKind::Equals);
         let expr = self.parse_expr(0);
 
         self.ast
-            .create_let_stmt(keyword, identifier, equals_token, expr)
+            .create_let_stmt(keyword, identifier, type_decl, equals_token, expr)
     }
 
     fn parse_while_stmt(&mut self) -> StmtId {
@@ -269,6 +270,18 @@ impl<'a> Parser<'a> {
         };
 
         id
+    }
+
+    fn parse_optional_type_decl(&mut self) -> Option<TypeDecl> {
+        let current_kind = &self.current().kind;
+        match current_kind {
+            TokenKind::Colon => {
+                let colon = self.next();
+                let typ = self.expect(TokenKind::Identifier);
+                Some(TypeDecl { colon, typ })
+            }
+            _ => None,
+        }
     }
 
     fn expect(&mut self, expected_kind: TokenKind) -> SyntaxToken {

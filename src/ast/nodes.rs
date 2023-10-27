@@ -57,6 +57,7 @@ pub struct LetStmt {
     pub keyword: SyntaxToken,
     pub identifier: SyntaxToken,
     pub variable: VariableId,
+    pub type_decl: Option<TypeDecl>,
     pub equals_token: SyntaxToken,
     pub initial: ExprId,
 }
@@ -126,6 +127,12 @@ pub struct AssignExpr {
     pub equals: SyntaxToken,
     pub rhs: ExprId,
     pub variable: VariableId,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeDecl {
+    pub colon: SyntaxToken,
+    pub typ: SyntaxToken,
 }
 
 #[derive(Debug, Clone)]

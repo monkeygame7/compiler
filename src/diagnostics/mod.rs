@@ -106,6 +106,10 @@ impl DiagnosticBag {
             token.span,
         )
     }
+
+    pub fn report_undefined_type(&self, token: &SyntaxToken) {
+        self.add_message(format!("Type '{}' is not defined", token), token.span);
+    }
 }
 
 impl IntoIterator for DiagnosticBag {

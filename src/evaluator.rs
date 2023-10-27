@@ -369,8 +369,8 @@ mod test {
             ),
             (
                 "
-                let x = 1
-                let y = 2
+                let x: int = 1
+                let y: int = 2
                 let z = 3
                 if x > y {
                     z = -100
@@ -469,6 +469,12 @@ mod test {
             "if true [let] [x] = 4",
             "while [1] {}",
             "if true 1 else [false]",
+            "let x: int = [true]",
+            "let x: int = [true]
+             x + 4",
+            "let x: bool = [5]
+             x [+] 4",
+            "let x: [foo] = 5",
         ];
 
         int_cases

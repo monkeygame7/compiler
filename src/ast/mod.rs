@@ -118,6 +118,7 @@ impl Ast {
         &mut self,
         keyword: SyntaxToken,
         identifier: SyntaxToken,
+        type_decl: Option<TypeDecl>,
         equals_token: SyntaxToken,
         expr: ExprId,
     ) -> StmtId {
@@ -128,6 +129,7 @@ impl Ast {
                 keyword,
                 identifier,
                 variable: VariableId::default(),
+                type_decl,
                 equals_token,
                 initial: expr,
             }),
