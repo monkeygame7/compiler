@@ -7,7 +7,7 @@ use crate::{
 
 use super::scope::Scopes;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Type {
     Int,
     Bool,
@@ -28,12 +28,12 @@ impl Resolver {
         }
     }
 
-    pub fn expect_type(&self, expected: Type, actual: Type, span: TextSpan) {
+    pub fn expect_type(&self, expected: &Type, actual: &Type, span: TextSpan) {
         // ignore if type is unresolved because that indicates type binding failed, which should
         // have already been reported as another error
-        if expected != actual && actual != Type::Unresolved {
+        if expected != actual && *actual != Type::Unresolved {
             self.diagnostics
-                .report_unexpected_type(expected, actual, span);
+                .report_unexpected_type(&expected, actual, span);
         }
     }
 
@@ -61,7 +61,7 @@ impl Resolver {
 
         if left.typ != expected_left || right.typ != expected_right {
             self.diagnostics
-                .report_unsupported_binary_operator(left.typ, op, right.typ);
+                .report_unsupported_binary_operator(&left.typ, op, &right.typ);
             Type::Unresolved
         } else {
             result
@@ -81,7 +81,7 @@ impl Resolver {
 
         if operand.typ != expected_operand {
             self.diagnostics
-                .report_unsupported_unary_operator(op, operand.typ);
+                .report_unsupported_unary_operator(op, &operand.typ);
             Type::Unresolved
         } else {
             result
@@ -95,7 +95,7 @@ impl AstVisitor for Resolver {
         let intial_expr = ast.query_expr(let_stmt.initial);
         let var = self
             .scopes
-            .declare_variable(&let_stmt.identifier, intial_expr.typ);
+            .declare_variable(&let_stmt.identifier, intial_expr.typ.clone());
         match var {
             Some(var) => ast.set_variable_for_stmt(var, stmt.id),
             None => self
@@ -108,7 +108,7 @@ impl AstVisitor for Resolver {
         self.visit_expr(ast, while_stmt.condition);
 
         let condition = ast.query_expr(while_stmt.condition);
-        self.expect_type(Type::Bool, condition.typ, condition.span);
+        self.expect_type(&Type::Bool, &condition.typ, condition.span);
 
         self.visit_expr(ast, while_stmt.body);
     }
@@ -116,7 +116,7 @@ impl AstVisitor for Resolver {
     fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
         self.visit_expr(ast, paren_expr.expr);
         let inner_expr = ast.query_expr(paren_expr.expr);
-        ast.set_type(expr.id, inner_expr.typ);
+        ast.set_type(expr.id, inner_expr.typ.clone());
     }
 
     fn visit_error(&mut self, ast: &mut Ast, _span: &TextSpan, expr: &Expr) {
@@ -138,17 +138,17 @@ impl AstVisitor for Resolver {
         let typ = match var {
             Some(var) => {
                 let rhs_expr = ast.query_expr(assign_expr.rhs);
-                self.expect_type(var.typ, rhs_expr.typ, rhs_expr.span);
+                self.expect_type(&var.typ, &rhs_expr.typ, rhs_expr.span);
                 ast.set_variable_for_expr(var.id, expr.id);
-                var.typ
+                &var.typ
             }
             None => {
                 self.diagnostics
                     .report_identifier_not_found(&assign_expr.identifier);
-                ast.query_expr(assign_expr.rhs).typ
+                &ast.query_expr(assign_expr.rhs).typ
             }
         };
-        ast.set_type(expr.id, typ);
+        ast.set_type(expr.id, typ.clone());
     }
 
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
@@ -176,7 +176,7 @@ impl AstVisitor for Resolver {
         let typ = match var {
             Some(var) => {
                 ast.set_variable_for_expr(var.id, expr.id);
-                var.typ
+                var.typ.clone()
             }
             None => {
                 self.diagnostics
@@ -199,7 +199,7 @@ impl AstVisitor for Resolver {
             .map(|id| ast.query_stmt(*id))
             .and_then(|stmt| match stmt.kind {
                 // TODO: only if no semicolon
-                StmtKind::Expr(expr) => Some(ast.query_expr(expr).typ),
+                StmtKind::Expr(expr) => Some(ast.query_expr(expr).typ.clone()),
                 _ => None,
             })
             .unwrap_or(Type::Void);
@@ -211,17 +211,17 @@ impl AstVisitor for Resolver {
         self.visit_expr(ast, if_expr.condition);
 
         let condition = ast.query_expr(if_expr.condition);
-        self.expect_type(Type::Bool, condition.typ, condition.span);
+        self.expect_type(&Type::Bool, &condition.typ, condition.span);
 
         self.visit_expr(ast, if_expr.then_clause);
         let typ = if let Some(else_clause) = &if_expr.else_clause {
             self.visit_expr(ast, else_clause.body);
-            ast.query_expr(else_clause.body).typ
+            &ast.query_expr(else_clause.body).typ
         } else {
-            ast.query_expr(if_expr.then_clause).typ
+            &ast.query_expr(if_expr.then_clause).typ
         };
 
-        ast.set_type(expr.id, typ);
+        ast.set_type(expr.id, typ.clone());
     }
 }
 

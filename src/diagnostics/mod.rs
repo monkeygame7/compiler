@@ -64,7 +64,7 @@ impl DiagnosticBag {
         )
     }
 
-    pub fn report_unexpected_type(&self, expected_type: Type, actual_type: Type, span: TextSpan) {
+    pub fn report_unexpected_type(&self, expected_type: &Type, actual_type: &Type, span: TextSpan) {
         self.add_message(
             format!("Expected '{}' but found '{}'", expected_type, actual_type),
             span,
@@ -73,9 +73,9 @@ impl DiagnosticBag {
 
     pub fn report_unsupported_binary_operator(
         &self,
-        l_type: impl Debug,
+        l_type: &impl Debug,
         op: &BinaryOperator,
-        r_type: impl Debug,
+        r_type: &impl Debug,
     ) {
         self.add_message(
             format!(
@@ -86,7 +86,7 @@ impl DiagnosticBag {
         );
     }
 
-    pub fn report_unsupported_unary_operator(&self, op: &UnaryOperator, operand_type: impl Debug) {
+    pub fn report_unsupported_unary_operator(&self, op: &UnaryOperator, operand_type: &impl Debug) {
         self.add_message(
             format!("'{}' is not a supported for '{:?}'", op, operand_type),
             op.token.span,
