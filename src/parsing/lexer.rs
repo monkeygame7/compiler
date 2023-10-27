@@ -24,6 +24,7 @@ pub enum TokenKind {
     If,
     Else,
     While,
+    Colon,
 
     // int operators
     Plus,
@@ -101,6 +102,7 @@ impl<'a> Lexer<'a> {
                 AsciiChar::ParenClose => TokenKind::RightParenthesis,
                 AsciiChar::CurlyBraceOpen => TokenKind::LeftCurly,
                 AsciiChar::CurlyBraceClose => TokenKind::RightCurly,
+                AsciiChar::Colon => TokenKind::Colon,
                 AsciiChar::Ampersand => self.match_potential_double(
                     AsciiChar::Ampersand,
                     TokenKind::AmpersandAmpersand,
@@ -371,34 +373,39 @@ mod test {
 
     fn single_token_cases() -> Vec<(String, TokenKind)> {
         vec![
-            ("$".to_string(), BadToken("$".to_string())),
-            ("+".to_string(), Plus),
-            ("-".to_string(), Dash),
-            ("*".to_string(), Star),
-            ("/".to_string(), Slash),
-            ("&".to_string(), Ampersand),
-            ("&&".to_string(), AmpersandAmpersand),
-            ("|".to_string(), Pipe),
-            ("||".to_string(), PipePipe),
-            ("!".to_string(), Bang),
-            ("==".to_string(), EqualsEquals),
-            ("!=".to_string(), BangEquals),
-            ("<".to_string(), LeftAngleBracket),
-            (">".to_string(), RightAngleBracket),
-            ("<=".to_string(), LeftAngleEquals),
-            (">=".to_string(), RightAngleEquals),
-            ("(".to_string(), LeftParenthesis),
-            (")".to_string(), RightParenthesis),
-            ("{".to_string(), LeftCurly),
-            ("}".to_string(), RightCurly),
-            ("1".to_string(), Integer(1)),
-            ("123".to_string(), Integer(123)),
-            ("true".to_string(), Boolean(true)),
-            ("false".to_string(), Boolean(false)),
-            ("a".to_string(), Identifier),
-            ("foo_bar".to_string(), Identifier),
+            ("$", BadToken("$".to_string())),
+            ("+", Plus),
+            ("-", Dash),
+            ("*", Star),
+            ("/", Slash),
+            ("&", Ampersand),
+            ("&&", AmpersandAmpersand),
+            ("|", Pipe),
+            ("||", PipePipe),
+            ("!", Bang),
+            ("==", EqualsEquals),
+            ("!=", BangEquals),
+            ("<", LeftAngleBracket),
+            (">", RightAngleBracket),
+            ("<=", LeftAngleEquals),
+            (">=", RightAngleEquals),
+            ("(", LeftParenthesis),
+            (")", RightParenthesis),
+            ("{", LeftCurly),
+            ("}", RightCurly),
+            ("1", Integer(1)),
+            ("123", Integer(123)),
+            ("true", Boolean(true)),
+            ("false", Boolean(false)),
+            ("a", Identifier),
+            ("foo_bar", Identifier),
+            ("let", Let),
+            ("if", If),
+            ("else", Else),
+            ("while", While),
         ]
         .into_iter()
+        .map(|(l, r)| (l.to_string(), r))
         .collect()
     }
 
@@ -429,14 +436,20 @@ mod test {
     }
 
     fn requires_separator(t1_kind: &TokenKind, t2_kind: &TokenKind) -> bool {
+        let matches = |k| match k {
+            &Let | &If | &Else | &While | &Identifier | &Boolean(_) => true,
+            _ => false,
+        };
+
         match (t1_kind, t2_kind) {
+            (k1, k2) if matches(k1) && matches(k2) => true,
             (&Integer(_), &Integer(_))
             | (&Boolean(_), &Integer(_))
-            | (&Boolean(_), &Identifier)
-            | (&Boolean(_), &Boolean(_))
-            | (&Identifier, &Boolean(_))
             | (&Identifier, &Integer(_))
-            | (&Identifier, &Identifier)
+            | (&Let, &Integer(_))
+            | (&If, &Integer(_))
+            | (&Else, &Integer(_))
+            | (&While, &Integer(_))
             | (&Ampersand, &Ampersand)
             | (&Ampersand, &AmpersandAmpersand)
             | (&Pipe, &Pipe)
