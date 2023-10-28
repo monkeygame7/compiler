@@ -110,6 +110,9 @@ impl DiagnosticBag {
     pub fn report_undefined_type(&self, token: &SyntaxToken) {
         self.add_message(format!("Type '{}' is not defined", token), token.span);
     }
+    pub fn report_return_outside_function(&self, token: &SyntaxToken) {
+        self.add_message("Cannot return outside of function".to_owned(), token.span);
+    }
 }
 
 impl IntoIterator for DiagnosticBag {

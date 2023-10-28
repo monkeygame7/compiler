@@ -69,6 +69,14 @@ impl Scopes {
         }
     }
 
+    pub fn lookup_function(&self, identifier: &str) -> Option<&Function> {
+        self.global_scope
+            .functions
+            .iter()
+            .filter(|func| func.name == identifier)
+            .nth(0)
+    }
+
     pub fn declare_function(
         &mut self,
         identifier: &SyntaxToken,

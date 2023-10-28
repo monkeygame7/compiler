@@ -176,7 +176,8 @@ impl AstVisitorMut for Resolver {
             let func_type = &self.scopes.global_scope.functions[func].return_type;
             self.expect_type(&func_type, &return_type, stmt.span);
         } else {
-            todo!("report return outside function")
+            self.diagnostics
+                .report_return_outside_function(&return_stmt.keyword);
         }
     }
 
