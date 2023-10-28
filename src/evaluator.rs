@@ -412,6 +412,13 @@ mod test {
                 ",
                 774,
             ),
+            (
+                "
+                let x = 5
+                fn foo: int(x: int) x = 3
+                x",
+                5,
+            ),
         ];
         let bool_cases = vec![
             ("true", true),
@@ -497,6 +504,7 @@ mod test {
             "if true [let] [x] = 4",
             "while [1] {}",
             "if true 1 else [false]",
+            "let[[[]]]",
             "let x: int = [true]",
             "let x: int = [true]
              x + 4",
@@ -518,6 +526,7 @@ mod test {
              fn foo: int(x: bool) [x]",
             "fn foo: int() 1
              let x: int = [foo]",
+            "fn foo: int(x: int) x [x]",
         ];
 
         int_cases
