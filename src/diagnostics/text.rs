@@ -42,6 +42,12 @@ pub struct SourceText {
     lines: Vec<TextLine>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct LineRange {
+    pub first_line: usize,
+    pub last_line: usize,
+}
+
 impl SourceText {
     pub fn from(text: &str) -> Result<SourceText, AsAsciiStrError> {
         let text = AsciiString::from_str(text)?;
@@ -55,10 +61,12 @@ impl SourceText {
         self.text.chars()
     }
 
-    pub fn relative_span(&self, original: TextSpan, line_num: usize) -> TextSpan {
-        assert!(line_num > 0, "Line numbers must start at 1");
-        let line = &self.lines[line_num - 1];
-        TextSpan::new(original.start - line.start, original.end - line.start)
+    pub fn relative_span(&self, original: TextSpan, line_num: LineRange) -> TextSpan {
+        let first_line = &self.lines[line_num.first_line - 1];
+        TextSpan::new(
+            original.start - first_line.start,
+            original.end - first_line.start,
+        )
     }
 
     fn parse_lines(text: &AsciiStr) -> Vec<TextLine> {
@@ -92,7 +100,14 @@ impl SourceText {
         lines
     }
 
-    pub fn get_line_number(&self, pos: usize) -> usize {
+    pub fn get_line_range(&self, span: TextSpan) -> LineRange {
+        LineRange {
+            first_line: self.get_line_number(span.start),
+            last_line: self.get_line_number(span.end),
+        }
+    }
+
+    fn get_line_number(&self, pos: usize) -> usize {
         let mut lower = 0;
         let mut upper = self.lines.len() - 1;
 
@@ -114,10 +129,10 @@ impl SourceText {
         self.lines.len()
     }
 
-    pub fn get_line(&self, line_num: usize) -> &AsciiStr {
-        assert!(line_num > 0, "Line numbers must start at 1");
-        let line = &self.lines[line_num - 1];
-        return &self.text[line.start..line.end()];
+    pub fn get_lines(&self, range: LineRange) -> &AsciiStr {
+        let first_line = &self.lines[range.first_line - 1];
+        let last_line = &self.lines[range.last_line - 1];
+        return &self.text[first_line.start..last_line.end()];
     }
 }
 
@@ -237,7 +252,10 @@ no line"#;
             for (pos, _) in line.char_indices() {
                 let line_num = src.get_line_number(base + pos);
                 assert_eq!(
-                    src.get_line(line_num),
+                    src.get_lines(LineRange {
+                        first_line: line_num,
+                        last_line: line_num
+                    }),
                     line,
                     "failed to find line for pos {}",
                     pos
