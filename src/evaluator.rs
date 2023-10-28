@@ -549,6 +549,8 @@ mod test {
             "let x = 4[]",
             "fn foo: int() [{1;}]",
             "fn foo: int() 1[;]",
+            "fn foo: int() [{return 1[}]]",
+            "fn foo() {let x = 4[}]",
         ];
 
         int_cases

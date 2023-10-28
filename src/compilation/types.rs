@@ -261,8 +261,7 @@ impl AstVisitorMut for Resolver {
                         typ = ast.query_expr(expr_stmt.expr).typ.clone();
                     } else {
                         if expr_stmt.semicolon.is_none() {
-                            self.diagnostics
-                                .report_block_stmt_missing_semicolon(stmt.span);
+                            self.diagnostics.report_expected_semicolon(stmt.span);
                         }
                     }
                 }

@@ -111,12 +111,8 @@ impl DiagnosticBag {
         self.add_message(format!("Type '{}' is not defined", token), token.span);
     }
 
-    pub fn report_block_stmt_missing_semicolon(&self, span: TextSpan) {
-        self.add_message(
-            "All expressions statements in block except last one must end with semicolon"
-                .to_owned(),
-            span,
-        );
+    pub fn report_expected_semicolon(&self, span: TextSpan) {
+        self.add_message("Expected to end with semicolon".to_owned(), span);
     }
 
     pub fn report_return_outside_function(&self, token: &SyntaxToken) {

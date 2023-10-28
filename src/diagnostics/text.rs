@@ -132,7 +132,7 @@ impl SourceText {
     pub fn get_lines(&self, range: LineRange) -> &AsciiStr {
         let first_line = &self.lines[range.first_line - 1];
         let last_line = &self.lines[range.last_line - 1];
-        return &self.text[first_line.start..last_line.end()];
+        return &self.text[first_line.start..last_line.end_with_line_break()];
     }
 }
 
@@ -255,7 +255,8 @@ no line"#;
                     src.get_lines(LineRange {
                         first_line: line_num,
                         last_line: line_num
-                    }),
+                    })
+                    .trim_end(),
                     line,
                     "failed to find line for pos {}",
                     pos

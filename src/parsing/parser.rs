@@ -173,7 +173,11 @@ impl<'a> Parser<'a> {
         let type_decl = self.parse_optional_type_decl();
         let equals_token = self.expect(TokenKind::Equals);
         let expr = self.parse_expr(0);
-        let semicolon = self.expect(TokenKind::Semicolon);
+
+        let semicolon = match self.try_consume(TokenKind::Semicolon) {
+            Ok(s) => s,
+            Err(s) => s,
+        };
 
         self.ast.create_let_stmt(
             keyword,
@@ -200,7 +204,10 @@ impl<'a> Parser<'a> {
         if self.current().kind != TokenKind::Semicolon && !self.is_done() {
             expr = Some(self.parse_expr(0));
         }
-        let semicolon = self.expect(TokenKind::Semicolon);
+        let semicolon = match self.try_consume(TokenKind::Semicolon) {
+            Ok(s) => s,
+            Err(s) => s,
+        };
 
         self.ast.create_return_stmt(keyword, expr, semicolon)
     }
@@ -356,6 +363,17 @@ impl<'a> Parser<'a> {
         match current_kind {
             TokenKind::Colon => Some(self.parse_type_decl()),
             _ => None,
+        }
+    }
+
+    fn try_consume(&mut self, expected_kind: TokenKind) -> Result<SyntaxToken, SyntaxToken> {
+        let current = self.current();
+        if current.kind == expected_kind {
+            Ok(self.next())
+        } else {
+            self.diagnostics
+                .report_unexpected_token(current, &expected_kind);
+            Err(current.clone())
         }
     }
 
