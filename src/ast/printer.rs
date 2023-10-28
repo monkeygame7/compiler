@@ -11,6 +11,7 @@ pub struct AstPrinter {
     pub result: String,
     is_last: bool,
 }
+const VERBOSE: bool = false;
 
 impl AstPrinter {
     pub fn new() -> Self {
@@ -108,6 +109,20 @@ impl AstVisitor for AstPrinter {
             printer.is_last = true;
             printer.visit_expr(ast, func.body);
         });
+    }
+
+    fn visit_stmt(&mut self, ast: &Ast, stmt: super::StmtId) {
+        if VERBOSE {
+            self.append_structural("stmt");
+            nested(self, |printer| {
+                printer.is_last = true;
+                let stmt = ast.query_stmt(stmt);
+                printer.do_visit_stmt(ast, stmt);
+            });
+        } else {
+            let stmt = ast.query_stmt(stmt);
+            self.do_visit_stmt(ast, stmt);
+        }
     }
 
     fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
@@ -219,10 +234,18 @@ impl AstVisitor for AstPrinter {
             if if_expr.else_clause.is_none() {
                 printer.is_last = true;
             }
-            printer.visit_expr(ast, if_expr.then_clause);
+            printer.append_structural("then");
+            nested(printer, |printer| {
+                printer.is_last = true;
+                printer.visit_expr(ast, if_expr.then_clause);
+            });
             if let Some(else_clause) = &if_expr.else_clause {
                 printer.is_last = true;
-                printer.visit_expr(ast, else_clause.body);
+                printer.append_structural("else");
+                nested(printer, |printer| {
+                    printer.is_last = true;
+                    printer.visit_expr(ast, else_clause.body);
+                });
             }
         });
     }

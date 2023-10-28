@@ -14,7 +14,11 @@ pub trait AstVisitor {
     fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl);
 
     fn visit_stmt(&mut self, ast: &Ast, stmt: StmtId) {
-        let stmt = ast.query_stmt(stmt).clone();
+        let stmt = ast.query_stmt(stmt);
+        self.do_visit_stmt(ast, &stmt);
+    }
+
+    fn do_visit_stmt(&mut self, ast: &Ast, stmt: &Stmt) {
         match &stmt.kind {
             StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
@@ -34,7 +38,7 @@ pub trait AstVisitor {
     fn visit_return_stmt(&mut self, ast: &Ast, return_stmt: &ReturnStmt, stmt: &Stmt);
 
     fn visit_expr(&mut self, ast: &Ast, expr: ExprId) {
-        let expr = ast.query_expr(expr).clone();
+        let expr = ast.query_expr(expr);
         self.do_visit_expr(ast, &expr);
     }
 
@@ -99,6 +103,10 @@ pub trait AstVisitorMut {
 
     fn visit_stmt(&mut self, ast: &mut Ast, stmt: StmtId) {
         let stmt = ast.query_stmt(stmt).clone();
+        self.do_visit_stmt(ast, &stmt);
+    }
+
+    fn do_visit_stmt(&mut self, ast: &mut Ast, stmt: &Stmt) {
         match &stmt.kind {
             StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
