@@ -214,7 +214,7 @@ no line"#;
 
         let src = SourceText::from(&multiline).unwrap();
 
-        assert_eq!(src.lines, expected_lines,);
+        assert_eq!(src.lines, expected_lines, "{}", src.text);
     }
 
     #[test]

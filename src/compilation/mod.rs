@@ -29,7 +29,7 @@ impl CompilationUnit {
         let mut ast = Parser::parse(lexer, diagnostics.clone());
 
         let mut resolver = Resolver::new(diagnostics.clone());
-        ast.visit(&mut resolver);
+        ast.visit_mut(&mut resolver);
 
         if print_tree {
             ast.print();

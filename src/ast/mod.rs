@@ -2,13 +2,16 @@ mod id;
 pub mod nodes;
 mod printer;
 mod visitor;
+use std::fmt::Debug;
+
 pub use id::{Idx, IdxVec};
 use nodes::*;
 
 pub use visitor::AstVisitor;
+pub use visitor::AstVisitorMut;
 
 use crate::{
-    compilation::{Type, VariableId},
+    compilation::{FunctionId, Type, VariableId},
     diagnostics::TextSpan,
     idx,
     parsing::SyntaxToken,
@@ -25,6 +28,14 @@ pub struct Ast {
     items: IdxVec<ItemId, Item>,
 }
 
+impl Debug for Ast {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut printer = AstPrinter::new();
+        self.visit(&mut printer);
+        f.write_str(&printer.result)
+    }
+}
+
 impl Ast {
     pub fn new() -> Self {
         Ast {
@@ -34,16 +45,20 @@ impl Ast {
         }
     }
 
-    pub fn visit(&mut self, visitor: &mut dyn AstVisitor) {
+    pub fn visit(&self, visitor: &mut dyn AstVisitor) {
+        for item in self.items.clone().iter() {
+            visitor.visit_item(self, item.id);
+        }
+    }
+
+    pub fn visit_mut(&mut self, visitor: &mut dyn AstVisitorMut) {
         for item in self.items.clone().iter() {
             visitor.visit_item(self, item.id);
         }
     }
 
     pub fn print(&mut self) {
-        let mut printer = AstPrinter::new();
-        self.visit(&mut printer);
-        println!("{}", printer.result);
+        println!("{:?}", self);
     }
 
     pub fn query_item(&self, id: ItemId) -> &Item {

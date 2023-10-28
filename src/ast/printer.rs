@@ -72,74 +72,8 @@ impl AstPrinter {
 }
 
 impl AstVisitor for AstPrinter {
-    fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
-        self.append_item("(ERROR)".red());
-    }
 
-    fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
-        self.append_item(&int_expr.token.to_string().bright_blue());
-    }
-
-    fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &super::BooleanExpr, _expr: &Expr) {
-        self.append_item(&bool_expr.token.to_string().bright_yellow());
-    }
-
-    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &super::AssignExpr, _expr: &Expr) {
-        self.append_operator("=");
-
-        nested(self, |printer| {
-            printer.is_last = false;
-            printer.append_item(assign_expr.identifier.to_string().green());
-            printer.is_last = true;
-            printer.visit_expr(ast, assign_expr.rhs);
-        });
-    }
-
-    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, _expr: &Expr) {
-        self.append_structural("paren");
-
-        nested(self, |printer| {
-            printer.is_last = true;
-            printer.visit_expr(ast, paren_expr.expr);
-        });
-    }
-
-    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
-        self.append_operator(&binary_expr.operator.token);
-
-        nested(self, |printer| {
-            printer.is_last = false;
-            printer.visit_expr(ast, binary_expr.left);
-            printer.is_last = true;
-            printer.visit_expr(ast, binary_expr.right);
-        });
-    }
-
-    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
-        self.append_operator(&unary_expr.operator.token);
-
-        nested(self, |printer| {
-            printer.is_last = true;
-            printer.visit_expr(ast, unary_expr.operand);
-        });
-    }
-
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, _expr: &Expr) {
-        self.append_structural("block");
-
-        nested(self, |printer| {
-            for (idx, stmt) in block_expr.stmts.iter().enumerate() {
-                printer.is_last = idx == block_expr.stmts.len() - 1;
-                printer.visit_stmt(ast, *stmt);
-            }
-        });
-    }
-
-    fn visit_variable_expr(&mut self, _ast: &mut Ast, variable_expr: &VariableExpr, _expr: &Expr) {
-        self.append_item(&variable_expr.token.to_string().green());
-    }
-
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
+    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
         self.append_keyword(&let_stmt.keyword);
 
         nested(self, |printer| {
@@ -150,7 +84,7 @@ impl AstVisitor for AstPrinter {
         });
     }
 
-    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &super::Stmt) {
+    fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &super::Stmt) {
         self.append_keyword(&while_stmt.keyword);
 
         nested(self, |printer| {
@@ -161,7 +95,74 @@ impl AstVisitor for AstPrinter {
         });
     }
 
-    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, _expr: &Expr) {
+    fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
+        self.append_item("(ERROR)".red());
+    }
+
+    fn visit_integer_expr(&mut self, _ast: &Ast, int_expr: &IntegerExpr, _expr: &Expr) {
+        self.append_item(&int_expr.token.to_string().bright_blue());
+    }
+
+    fn visit_boolean_expr(&mut self, _ast: &Ast, bool_expr: &super::BooleanExpr, _expr: &Expr) {
+        self.append_item(&bool_expr.token.to_string().bright_yellow());
+    }
+
+    fn visit_assign_expr(&mut self, ast: &Ast, assign_expr: &super::AssignExpr, _expr: &Expr) {
+        self.append_operator("=");
+
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.append_item(assign_expr.identifier.to_string().green());
+            printer.is_last = true;
+            printer.visit_expr(ast, assign_expr.rhs);
+        });
+    }
+
+    fn visit_paren_expr(&mut self, ast: &Ast, paren_expr: &ParenExpr, _expr: &Expr) {
+        self.append_structural("paren");
+
+        nested(self, |printer| {
+            printer.is_last = true;
+            printer.visit_expr(ast, paren_expr.expr);
+        });
+    }
+
+    fn visit_binary_expr(&mut self, ast: &Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
+        self.append_operator(&binary_expr.operator.token);
+
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.visit_expr(ast, binary_expr.left);
+            printer.is_last = true;
+            printer.visit_expr(ast, binary_expr.right);
+        });
+    }
+
+    fn visit_unary_expr(&mut self, ast: &Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
+        self.append_operator(&unary_expr.operator.token);
+
+        nested(self, |printer| {
+            printer.is_last = true;
+            printer.visit_expr(ast, unary_expr.operand);
+        });
+    }
+
+    fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, _expr: &Expr) {
+        self.append_structural("block");
+
+        nested(self, |printer| {
+            for (idx, stmt) in block_expr.stmts.iter().enumerate() {
+                printer.is_last = idx == block_expr.stmts.len() - 1;
+                printer.visit_stmt(ast, *stmt);
+            }
+        });
+    }
+
+    fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
+        self.append_item(&variable_expr.token.to_string().green());
+    }
+
+    fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, _expr: &Expr) {
         self.append_keyword(&if_expr.keyword);
 
         nested(self, |printer| {

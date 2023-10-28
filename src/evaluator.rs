@@ -38,19 +38,19 @@ impl Display for ResultType {
 use ResultType::*;
 
 impl AstVisitor for Evaluator {
-    fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
+    fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
         self.last_result = Some(Undefined);
     }
 
-    fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
+    fn visit_integer_expr(&mut self, _ast: &Ast, int_expr: &IntegerExpr, _expr: &Expr) {
         self.last_result = Some(Integer(int_expr.value));
     }
 
-    fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
+    fn visit_boolean_expr(&mut self, _ast: &Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
         self.last_result = Some(Boolean(bool_expr.value));
     }
 
-    fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, _expr: &Expr) {
+    fn visit_assign_expr(&mut self, ast: &Ast, assign_expr: &AssignExpr, _expr: &Expr) {
         self.visit_expr(ast, assign_expr.rhs);
         let value = self.last_result.unwrap();
 
@@ -67,7 +67,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(value)
     }
 
-    fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
+    fn visit_binary_expr(&mut self, ast: &Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
         self.visit_expr(ast, binary_expr.left);
         let left = self.last_result.take().unwrap();
         self.visit_expr(ast, binary_expr.right);
@@ -106,7 +106,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
-    fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
+    fn visit_unary_expr(&mut self, ast: &Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
         self.visit_expr(ast, unary_expr.operand);
         let expr_result = self.last_result.take().unwrap();
         let result = match expr_result {
@@ -129,7 +129,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
-    fn visit_variable_expr(&mut self, _ast: &mut Ast, variable_expr: &VariableExpr, _expr: &Expr) {
+    fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
         self.last_result = self
             .scopes
             .iter()
@@ -139,7 +139,7 @@ impl AstVisitor for Evaluator {
             .cloned();
     }
 
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
+    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let value = self.last_result.take().unwrap();
 
@@ -149,7 +149,7 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(Void);
     }
 
-    fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
+    fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
         loop {
             self.visit_expr(ast, while_stmt.condition);
             let condition = self.last_result.unwrap().to_bool();
@@ -161,13 +161,13 @@ impl AstVisitor for Evaluator {
         }
     }
 
-    fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
+    fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, expr: &Expr) {
         self.scopes.push(HashMap::new());
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.pop().expect("Unexpected empty scopes");
     }
 
-    fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, _expr: &Expr) {
+    fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, _expr: &Expr) {
         self.visit_expr(ast, if_expr.condition);
         let condition = if let Some(ResultType::Boolean(b)) = self.last_result {
             b
@@ -191,7 +191,7 @@ impl Evaluator {
         }
     }
 
-    pub fn evaluate(ast: &mut Ast) -> ResultType {
+    pub fn evaluate(ast: &Ast) -> ResultType {
         let mut evaluator = Self::new();
         ast.visit(&mut evaluator);
         evaluator.last_result.take().unwrap_or(Void)

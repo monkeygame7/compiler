@@ -1,7 +1,7 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    ast::{nodes::*, Ast, AstVisitor},
+    ast::{nodes::*, Ast, AstVisitorMut},
     diagnostics::{DiagnosticBag, TextSpan},
 };
 
@@ -91,7 +91,7 @@ impl Resolver {
     }
 }
 
-impl AstVisitor for Resolver {
+impl AstVisitorMut for Resolver {
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let initial_expr = ast.query_expr(let_stmt.initial);
@@ -128,12 +128,6 @@ impl AstVisitor for Resolver {
         self.visit_expr(ast, while_stmt.body);
     }
 
-    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
-        self.visit_expr(ast, paren_expr.expr);
-        let inner_expr = ast.query_expr(paren_expr.expr);
-        ast.set_type(expr.id, inner_expr.typ.clone());
-    }
-
     fn visit_error(&mut self, ast: &mut Ast, _span: &TextSpan, expr: &Expr) {
         ast.set_type(expr.id, Type::Unresolved);
     }
@@ -166,6 +160,12 @@ impl AstVisitor for Resolver {
         ast.set_type(expr.id, typ);
     }
 
+    fn visit_paren_expr(&mut self, ast: &mut Ast, paren_expr: &ParenExpr, expr: &Expr) {
+        self.visit_expr(ast, paren_expr.expr);
+        let inner_expr = ast.query_expr(paren_expr.expr);
+        ast.set_type(expr.id, inner_expr.typ.clone());
+    }
+
     fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, expr: &Expr) {
         self.visit_expr(ast, binary_expr.left);
         self.visit_expr(ast, binary_expr.right);
@@ -186,23 +186,6 @@ impl AstVisitor for Resolver {
         ast.set_type(expr.id, typ);
     }
 
-    fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
-        let var = self.scopes.lookup_variable(&variable_expr.token.literal);
-        let typ = match var {
-            Some(var) => {
-                ast.set_variable_for_expr(var.id, expr.id);
-                var.typ.clone()
-            }
-            None => {
-                self.diagnostics
-                    .report_identifier_not_found(&variable_expr.token);
-                Type::Unresolved
-            }
-        };
-
-        ast.set_type(expr.id, typ);
-    }
-
     fn visit_block_expr(&mut self, ast: &mut Ast, block_expr: &BlockExpr, expr: &Expr) {
         self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
@@ -218,6 +201,23 @@ impl AstVisitor for Resolver {
                 _ => None,
             })
             .unwrap_or(Type::Void);
+
+        ast.set_type(expr.id, typ);
+    }
+
+    fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr) {
+        let var = self.scopes.lookup_variable(&variable_expr.token.literal);
+        let typ = match var {
+            Some(var) => {
+                ast.set_variable_for_expr(var.id, expr.id);
+                var.typ.clone()
+            }
+            None => {
+                self.diagnostics
+                    .report_identifier_not_found(&variable_expr.token);
+                Type::Unresolved
+            }
+        };
 
         ast.set_type(expr.id, typ);
     }
