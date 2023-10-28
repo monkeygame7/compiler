@@ -25,6 +25,8 @@ pub enum TokenKind {
     Else,
     While,
     Colon,
+    Comma,
+    Fn,
 
     // int operators
     Plus,
@@ -103,6 +105,7 @@ impl<'a> Lexer<'a> {
                 AsciiChar::CurlyBraceOpen => TokenKind::LeftCurly,
                 AsciiChar::CurlyBraceClose => TokenKind::RightCurly,
                 AsciiChar::Colon => TokenKind::Colon,
+                AsciiChar::Comma => TokenKind::Comma,
                 AsciiChar::Ampersand => self.match_potential_double(
                     AsciiChar::Ampersand,
                     TokenKind::AmpersandAmpersand,
@@ -182,6 +185,7 @@ impl<'a> Lexer<'a> {
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
+            "fn" => TokenKind::Fn,
             _ => TokenKind::Identifier,
         }
     }
@@ -394,6 +398,7 @@ mod test {
             ("{", LeftCurly),
             ("}", RightCurly),
             (":", Colon),
+            (",", Comma),
             ("1", Integer(1)),
             ("123", Integer(123)),
             ("true", Boolean(true)),
@@ -404,6 +409,7 @@ mod test {
             ("if", If),
             ("else", Else),
             ("while", While),
+            ("fn", Fn),
         ]
         .into_iter()
         .map(|(l, r)| (l.to_string(), r))
@@ -438,19 +444,14 @@ mod test {
 
     fn requires_separator(t1_kind: &TokenKind, t2_kind: &TokenKind) -> bool {
         let matches = |k| match k {
-            &Let | &If | &Else | &While | &Identifier | &Boolean(_) => true,
+            &Let | &If | &Else | &While | &Identifier | &Boolean(_) | &Fn => true,
             _ => false,
         };
 
         match (t1_kind, t2_kind) {
             (k1, k2) if matches(k1) && matches(k2) => true,
+            (k1, &Integer(_)) if matches(k1) => true,
             (&Integer(_), &Integer(_))
-            | (&Boolean(_), &Integer(_))
-            | (&Identifier, &Integer(_))
-            | (&Let, &Integer(_))
-            | (&If, &Integer(_))
-            | (&Else, &Integer(_))
-            | (&While, &Integer(_))
             | (&Ampersand, &Ampersand)
             | (&Ampersand, &AmpersandAmpersand)
             | (&Pipe, &Pipe)

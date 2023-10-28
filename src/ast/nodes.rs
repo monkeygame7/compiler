@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    compilation::{Type, VariableId},
+    compilation::{FunctionId, Type, VariableId},
     diagnostics::TextSpan,
     parsing::SyntaxToken,
 };
@@ -26,6 +26,7 @@ impl Item {
 #[derive(Debug, Clone)]
 pub enum ItemKind {
     Stmt(StmtId),
+    Func(FunctionDecl),
 }
 
 #[derive(Debug, Clone)]
@@ -225,7 +226,6 @@ pub struct BlockExpr {
 pub struct VariableExpr {
     pub token: SyntaxToken,
     pub id: VariableId,
-    pub typ: Type,
 }
 
 #[derive(Debug, Clone)]
@@ -241,6 +241,37 @@ pub struct ElseClause {
     pub keyword: SyntaxToken,
     pub body: ExprId,
     pub span: TextSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDecl {
+    pub keyword: SyntaxToken,
+    pub name: SyntaxToken,
+    pub return_type: Option<TypeDecl>,
+    pub open_paren: SyntaxToken,
+    pub parameters: Vec<FunctionParam>,
+    pub close_paren: SyntaxToken,
+    pub body: ExprId,
+    pub id: FunctionId,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionParam {
+    pub token: SyntaxToken,
+    pub id: VariableId,
+    pub type_decl: TypeDecl,
+    pub comma: Option<SyntaxToken>,
+}
+
+impl FunctionParam {
+    pub fn new(token: SyntaxToken, type_decl: TypeDecl, comma: Option<SyntaxToken>) -> Self {
+        Self {
+            token,
+            id: VariableId::default(),
+            type_decl,
+            comma,
+        }
+    }
 }
 
 impl Display for BinaryOperator {

@@ -181,6 +181,10 @@ impl AstVisitor for Evaluator {
             self.visit_expr(ast, else_clause.body);
         }
     }
+
+    fn visit_func_decl(&mut self, _ast: &Ast, _func: &FunctionDecl) {
+        todo!()
+    }
 }
 
 impl Evaluator {

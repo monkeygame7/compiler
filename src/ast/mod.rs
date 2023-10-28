@@ -110,6 +110,32 @@ impl Ast {
         id
     }
 
+    pub fn create_stmt_item(&mut self, stmt: StmtId) -> ItemId {
+        self.create_item(ItemKind::Stmt(stmt))
+    }
+
+    pub fn create_function_item(
+        &mut self,
+        keyword: SyntaxToken,
+        name: SyntaxToken,
+        return_type: Option<TypeDecl>,
+        open_paren: SyntaxToken,
+        parameters: Vec<FunctionParam>,
+        close_paren: SyntaxToken,
+        body: ExprId,
+    ) -> ItemId {
+        self.create_item(ItemKind::Func(FunctionDecl {
+            keyword,
+            name,
+            return_type,
+            open_paren,
+            parameters,
+            close_paren,
+            body,
+            id: FunctionId::default(),
+        }))
+    }
+
     pub fn create_stmt(&mut self, kind: StmtKind, span: TextSpan) -> StmtId {
         let stmt = Stmt::new(kind, span);
         let id = self.statements.push(stmt);
@@ -265,7 +291,6 @@ impl Ast {
             ExprKind::Variable(VariableExpr {
                 token,
                 id: VariableId::default(),
-                typ: Type::Unresolved,
             }),
             span,
         )

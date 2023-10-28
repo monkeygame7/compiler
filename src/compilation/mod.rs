@@ -1,5 +1,6 @@
 mod scope;
 mod types;
+pub use scope::FunctionId;
 pub use scope::VariableId;
 pub use types::Type;
 

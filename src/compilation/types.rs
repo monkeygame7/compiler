@@ -92,6 +92,10 @@ impl Resolver {
 }
 
 impl AstVisitorMut for Resolver {
+    fn visit_func_decl(&mut self, _ast: &mut Ast, _func: &FunctionDecl) {
+        todo!()
+    }
+
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let initial_expr = ast.query_expr(let_stmt.initial);

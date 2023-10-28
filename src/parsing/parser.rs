@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{
     ast::{
         nodes::{
-            BinaryOperator, BinaryOperatorKind, ElseClause, ItemKind, TypeDecl, UnaryOperator,
+            BinaryOperator, BinaryOperatorKind, ElseClause, FunctionParam, TypeDecl, UnaryOperator,
             UnaryOperatorKind,
         },
         Ast, ExprId, ItemId, StmtId,
@@ -93,8 +93,51 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item(&mut self) -> ItemId {
-        let stmt = self.parse_stmt();
-        self.ast.create_item(ItemKind::Stmt(stmt))
+        match self.current().kind {
+            TokenKind::Fn => self.parse_func_decl(),
+            _ => {
+                let stmt = self.parse_stmt();
+                self.ast.create_stmt_item(stmt)
+            }
+        }
+    }
+
+    fn parse_func_decl(&mut self) -> ItemId {
+        let keyword = self.expect(TokenKind::Fn);
+        let name = self.expect(TokenKind::Identifier);
+        let return_type = self.parse_optional_type_decl();
+        let open_paren = self.expect(TokenKind::LeftParenthesis);
+
+        let mut parameters = vec![];
+        while self.current().kind != TokenKind::RightParenthesis && !self.is_done() {
+            parameters.push(self.parse_func_param());
+        }
+
+        let close_paren = self.expect(TokenKind::RightParenthesis);
+        let body = self.parse_expr(0);
+
+        self.ast.create_function_item(
+            keyword,
+            name,
+            return_type,
+            open_paren,
+            parameters,
+            close_paren,
+            body,
+        )
+    }
+
+    fn parse_func_param(&mut self) -> FunctionParam {
+        let token = self.expect(TokenKind::Identifier);
+        let type_decl = self.parse_type_decl();
+        let comma = if self.current().kind == TokenKind::Comma
+            || (self.current().kind != TokenKind::RightParenthesis && !self.is_done())
+        {
+            Some(self.expect(TokenKind::Comma))
+        } else {
+            None
+        };
+        FunctionParam::new(token, type_decl, comma)
     }
 
     fn parse_stmt(&mut self) -> StmtId {
@@ -272,14 +315,16 @@ impl<'a> Parser<'a> {
         id
     }
 
+    fn parse_type_decl(&mut self) -> TypeDecl {
+        let colon = self.expect(TokenKind::Colon);
+        let typ = self.expect(TokenKind::Identifier);
+        TypeDecl { colon, typ }
+    }
+
     fn parse_optional_type_decl(&mut self) -> Option<TypeDecl> {
         let current_kind = &self.current().kind;
         match current_kind {
-            TokenKind::Colon => {
-                let colon = self.next();
-                let typ = self.expect(TokenKind::Identifier);
-                Some(TypeDecl { colon, typ })
-            }
+            TokenKind::Colon => Some(self.parse_type_decl()),
             _ => None,
         }
     }
@@ -325,6 +370,7 @@ mod test {
         If,
         Else,
         While,
+        Function,
     }
 
     impl Matcher {
@@ -425,8 +471,19 @@ mod test {
     }
 
     impl AstVisitor for AssertingIterator {
-        fn visit_func_decl(&mut self, _ast: &Ast, _func: &crate::ast::nodes::FunctionDecl) {
-            todo!()
+        fn visit_func_decl(&mut self, ast: &Ast, func: &crate::ast::nodes::FunctionDecl) {
+            self.nodes.push(Matcher::Function);
+            self.nodes.push(Matcher::ident(&func.name.literal));
+            if let Some(return_type) = &func.return_type {
+                self.nodes
+                    .push(Matcher::type_decl(&return_type.typ.literal))
+            }
+            for param in &func.parameters {
+                self.nodes.push(Matcher::ident(&param.token.literal));
+                self.nodes
+                    .push(Matcher::type_decl(&param.type_decl.typ.literal));
+            }
+            self.visit_expr(ast, func.body);
         }
 
         fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
@@ -623,6 +680,45 @@ mod test {
         asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
         asserter.assert(Matcher::ident("i"));
         asserter.assert(Matcher::Int(1));
+
+        asserter.finish();
+    }
+
+    #[test]
+    fn test_func_decl() {
+        let text = "fn f: int(i: int, b: bool) i + b";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::Function);
+        asserter.assert(Matcher::ident("f"));
+        asserter.assert(Matcher::type_decl("int"));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::type_decl("int"));
+        asserter.assert(Matcher::ident("b"));
+        asserter.assert(Matcher::type_decl("bool"));
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::ident("b"));
+
+        asserter.finish();
+    }
+
+    #[test]
+    fn test_func_decl_block() {
+        let text = "fn f: int(i: int, b: bool) {i + b 4}";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::Function);
+        asserter.assert(Matcher::ident("f"));
+        asserter.assert(Matcher::type_decl("int"));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::type_decl("int"));
+        asserter.assert(Matcher::ident("b"));
+        asserter.assert(Matcher::type_decl("bool"));
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::ident("b"));
+        asserter.assert(Matcher::Int(4));
 
         asserter.finish();
     }

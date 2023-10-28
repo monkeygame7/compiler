@@ -1,4 +1,4 @@
-use crate::{diagnostics::TextSpan};
+use crate::diagnostics::TextSpan;
 
 use super::{nodes::*, Ast, ExprId, ItemId, StmtId};
 
@@ -7,8 +7,11 @@ pub trait AstVisitor {
         let item = ast.query_item(item).clone();
         match &item.kind {
             ItemKind::Stmt(stmt) => self.visit_stmt(ast, *stmt),
+            ItemKind::Func(func) => self.visit_func_decl(ast, func),
         }
     }
+
+    fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl);
 
     fn visit_stmt(&mut self, ast: &Ast, stmt: StmtId) {
         let stmt = ast.query_stmt(stmt).clone();
@@ -85,8 +88,11 @@ pub trait AstVisitorMut {
         let item = ast.query_item(item).clone();
         match &item.kind {
             ItemKind::Stmt(stmt) => self.visit_stmt(ast, *stmt),
+            ItemKind::Func(func) => self.visit_func_decl(ast, func),
         }
     }
+
+    fn visit_func_decl(&mut self, ast: &mut Ast, func: &FunctionDecl);
 
     fn visit_stmt(&mut self, ast: &mut Ast, stmt: StmtId) {
         let stmt = ast.query_stmt(stmt).clone();

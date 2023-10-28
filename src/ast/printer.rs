@@ -72,6 +72,43 @@ impl AstPrinter {
 }
 
 impl AstVisitor for AstPrinter {
+    fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl) {
+        self.append_item(format!(
+            "{} {}",
+            func.keyword.literal.truecolor(60, 60, 60),
+            func.name.literal.yellow()
+        ));
+
+        nested(self, |printer| {
+            printer.is_last = false;
+            printer.append_item(format!(
+                "return ({})",
+                func.return_type
+                    .as_ref()
+                    .map(|t| t.typ.literal.as_str())
+                    .unwrap_or("void")
+                    .yellow()
+            ));
+            if func.parameters.len() > 0 {
+                printer.append_structural("params");
+                nested(printer, |printer| {
+                    printer.is_last = false;
+                    nested(printer, |printer| {
+                        for (i, param) in func.parameters.iter().enumerate() {
+                            printer.is_last = i == func.parameters.len() - 1;
+                            printer.append_item(format!(
+                                "{} ({})",
+                                param.token.literal.green(),
+                                param.type_decl.typ.literal.yellow()
+                            ))
+                        }
+                    });
+                });
+            }
+            printer.is_last = true;
+            printer.visit_expr(ast, func.body);
+        });
+    }
 
     fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
         self.append_keyword(&let_stmt.keyword);
