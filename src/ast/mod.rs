@@ -150,9 +150,17 @@ impl Ast {
         id
     }
 
-    pub fn create_expr_stmt(&mut self, expr: ExprId) -> StmtId {
-        let expr_span = self.query_expr(expr).span;
-        self.create_stmt(StmtKind::Expr(expr), expr_span)
+    pub fn create_expr_stmt(&mut self, expr: ExprId, semicolon: Option<SyntaxToken>) -> StmtId {
+        let mut span = self.query_expr(expr).span;
+        if let Some(token) = &semicolon {
+            span = span.to(token.span);
+        }
+        self.create_stmt(StmtKind::Expr(ExprStmt { expr, semicolon }), span)
+    }
+
+    pub fn create_if_stmt(&mut self, if_expr: ExprId) -> StmtId {
+        let span = self.query_expr(if_expr).span;
+        self.create_stmt(StmtKind::If(if_expr), span)
     }
 
     pub fn create_let_stmt(
@@ -162,6 +170,7 @@ impl Ast {
         type_decl: Option<TypeDecl>,
         equals_token: SyntaxToken,
         expr: ExprId,
+        semicolon: SyntaxToken,
     ) -> StmtId {
         let expr_span = self.query_expr(expr).span;
         let span = keyword.span.to(expr_span);
@@ -173,6 +182,7 @@ impl Ast {
                 type_decl,
                 equals_token,
                 initial: expr,
+                semicolon,
             }),
             span,
         )
@@ -195,12 +205,24 @@ impl Ast {
         )
     }
 
-    pub fn create_return_stmt(&mut self, keyword: SyntaxToken, value: Option<ExprId>) -> StmtId {
+    pub fn create_return_stmt(
+        &mut self,
+        keyword: SyntaxToken,
+        value: Option<ExprId>,
+        semicolon: SyntaxToken,
+    ) -> StmtId {
         let mut span = keyword.span;
         if let Some(expr) = value {
             span = span.to(self.query_expr(expr).span);
         }
-        self.create_stmt(StmtKind::Return(ReturnStmt { keyword, value }), span)
+        self.create_stmt(
+            StmtKind::Return(ReturnStmt {
+                keyword,
+                value,
+                semicolon,
+            }),
+            span,
+        )
     }
 
     pub fn create_error_expr(&mut self, span: TextSpan) -> ExprId {

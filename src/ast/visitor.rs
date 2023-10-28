@@ -20,15 +20,20 @@ pub trait AstVisitor {
 
     fn do_visit_stmt(&mut self, ast: &Ast, stmt: &Stmt) {
         match &stmt.kind {
-            StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
+            StmtKind::Expr(expr_stmt) => self.visit_expr_stmt(ast, expr_stmt, &stmt),
+            StmtKind::If(if_expr) => self.visit_if_stmt(ast, *if_expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
             StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
     }
 
-    fn visit_expr_stmt(&mut self, ast: &Ast, expr: ExprId, _stmt: &Stmt) {
-        self.visit_expr(ast, expr);
+    fn visit_expr_stmt(&mut self, ast: &Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, expr_stmt.expr);
+    }
+
+    fn visit_if_stmt(&mut self, ast: &Ast, if_expr: ExprId, _stmt: &Stmt) {
+        self.visit_expr(ast, if_expr);
     }
 
     fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, stmt: &Stmt);
@@ -108,15 +113,20 @@ pub trait AstVisitorMut {
 
     fn do_visit_stmt(&mut self, ast: &mut Ast, stmt: &Stmt) {
         match &stmt.kind {
-            StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
+            StmtKind::Expr(expr_stmt) => self.visit_expr_stmt(ast, expr_stmt, &stmt),
+            StmtKind::If(if_expr) => self.visit_if_stmt(ast, *if_expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
             StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
     }
 
-    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr: ExprId, _stmt: &Stmt) {
-        self.visit_expr(ast, expr);
+    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, expr_stmt.expr);
+    }
+
+    fn visit_if_stmt(&mut self, ast: &mut Ast, if_expr: ExprId, _stmt: &Stmt) {
+        self.visit_expr(ast, if_expr);
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt);

@@ -25,6 +25,7 @@ pub enum TokenKind {
     Else,
     While,
     Colon,
+    Semicolon,
     Comma,
     Fn,
     Return,
@@ -106,6 +107,7 @@ impl<'a> Lexer<'a> {
                 AsciiChar::CurlyBraceOpen => TokenKind::LeftCurly,
                 AsciiChar::CurlyBraceClose => TokenKind::RightCurly,
                 AsciiChar::Colon => TokenKind::Colon,
+                AsciiChar::Semicolon => TokenKind::Semicolon,
                 AsciiChar::Comma => TokenKind::Comma,
                 AsciiChar::Ampersand => self.match_potential_double(
                     AsciiChar::Ampersand,
@@ -400,6 +402,7 @@ mod test {
             ("{", LeftCurly),
             ("}", RightCurly),
             (":", Colon),
+            (";", Semicolon),
             (",", Comma),
             ("1", Integer(1)),
             ("123", Integer(123)),

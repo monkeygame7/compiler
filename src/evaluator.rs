@@ -42,6 +42,13 @@ impl AstVisitor for Evaluator {
         // Do nothing
     }
 
+    fn visit_expr_stmt(&mut self, ast: &Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, expr_stmt.expr);
+        if expr_stmt.semicolon.is_some() {
+            self.last_result = None;
+        }
+    }
+
     fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let value = self.last_result.take().unwrap();
@@ -305,11 +312,11 @@ mod test {
     #[test]
     fn test_multiline() {
         let input = r#"
-            let x = 5
-            let y = 10
-            let z = x + y
-            x = x * 2
-            y = x + y
+            let x = 5;
+            let y = 10;
+            let z = x + y;
+            x = x * 2;
+            y = x + y;
             y + z
             "#;
         let expected = Integer(35);
@@ -330,27 +337,28 @@ mod test {
             ("123 & 0", 0),
             ("123 | 0", 123),
             ("123 | -1", -1),
+            ("0 + {if true 1 else 2}", 1),
             (
-                "let x = 4
+                "let x = 4;
                  x = x = x + 5",
                 9,
             ),
             (
-                "let x = 4
+                "let x = 4;
                  x = x + 5",
                 9,
             ),
             (
-                "let x = 4
+                "let x = 4;
                 {
-                    let y = x
-                    let x = 2
+                    let y = x;
+                    let x = 2;
                     y + x
                 }",
                 6,
             ),
             (
-                "let x = 4
+                "let x = 4;
                 {x + 2}",
                 6,
             ),
@@ -358,28 +366,28 @@ mod test {
                 "
                 let x = 4 + {
                 let x = 2 - {
-                    let y = 10
+                    let y = 10;
                     y + 100
-                }
+                };
                 x
-             }
+             };
              x",
                 -104,
             ),
             (
                 "
-                 let x = 4
+                 let x = 4;
                  x + {
-                     let y = 3
+                     let y = 3;
                      x + y
                  }",
                 11,
             ),
             (
                 "
-                let x: int = 1
-                let y: int = 2
-                let z = 3
+                let x: int = 1;
+                let y: int = 2;
+                let z = 3;
                 if x > y {
                     z = -100
                 } else {
@@ -396,8 +404,8 @@ mod test {
             ),
             (
                 "
-                let x = 0
-                let result = 0
+                let x = 0;
+                let result = 0;
                 while x < 100 {
                   if x < 20 {
                     result = result + x
@@ -414,7 +422,7 @@ mod test {
             ),
             (
                 "
-                let x = 5
+                let x = 5;
                 fn foo: int(x: int) x = 3
                 x",
                 5,
@@ -444,19 +452,25 @@ mod test {
         ];
         let void_cases = vec![
             "",
-            "let x = 4",
+            "{1;2;}",
+            "let x = 4;",
             "fn foo() {}",
             "fn foo: int() 1",
-            "fn foo() {true let x = 1}",
+            "fn foo() {true; let x = 1;}",
             "fn foo: int(x: int, y: bool) x",
-            "let x = true
+            "let x = true;
              fn foo: int(x: int, y: bool) x",
-            "let x = 4
+            "let x = 4;
              fn foo: int() x",
             "fn foo: int() {
-                true
-                false
+                true;
+                false;
                 1 + 2
+            }",
+            "fn foo() {
+                1;
+                2;
+                3;
             }",
         ];
         let undefined_cases = vec![
@@ -478,39 +492,39 @@ mod test {
                 let x = 2 - {
                     let y = {
                         [x] + 10
-                    }
+                    };
                     y + 100
-                }
+                };
                 x
-            }",
+            };",
             "let x = {
-                let y = 4
-            }
+                let y = 4;
+            };
             x [+] 5",
             "4 [+] {
-                let x = 4
+                let x = 4;
             }",
             "{
-                let x = 4
+                let x = 4;
                 x = [{
                     4 < 3
                 }]
             }",
             "{
-                let x = 4
+                let x = 4;
             }
             [x]",
             "if [100] true else false",
             "if true [let] [x] = 4",
             "while [1] {}",
             "if true 1 else [false]",
-            "let[[[]]]",
-            "let x: int = [true]",
-            "let x: int = [true]
+            "let[[[[]]]]",
+            "let x: int = [true];",
+            "let x: int = [true];
              x + 4",
-            "let x: bool = [5]
+            "let x: bool = [5];
              x [+] 4",
-            "let x: [foo] = 5",
+            "let x: [foo] = 5;",
             "fn test: [foo]() {1}",
             "fn test: int() [{true}]",
             "fn test: int(x: [foo]) {x}",
@@ -522,11 +536,19 @@ mod test {
             "fn foo[[[]]]",
             "fn foo([[]]",
             "fn foo()[]",
-            "let x = 4
+            "let x = 4;
              fn foo: int(x: bool) [x]",
             "fn foo: int() 1
-             let x: int = [foo]",
+             let x: int = [foo];",
             "fn foo: int(x: int) x [x]",
+            "{[1] 2}",
+            "[return][]",
+            "[return];",
+            "[return] 1;",
+            "[return] 1[]",
+            "let x = 4[]",
+            "fn foo: int() [{1;}]",
+            "fn foo: int() 1[;]",
         ];
 
         int_cases

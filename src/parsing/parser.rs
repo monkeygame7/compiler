@@ -142,6 +142,7 @@ impl<'a> Parser<'a> {
 
     fn parse_stmt(&mut self) -> StmtId {
         let id = match self.current().kind {
+            TokenKind::If => self.parse_if_stmt(),
             TokenKind::Let => self.parse_let_stmt(),
             TokenKind::While => self.parse_while_stmt(),
             TokenKind::Return => self.parse_return_stmt(),
@@ -153,8 +154,17 @@ impl<'a> Parser<'a> {
 
     fn parse_expr_stmt(&mut self) -> StmtId {
         let id = self.parse_expr(0);
-        self.ast.create_expr_stmt(id)
-        // TODO: consume semicolon
+        let semicolon = if self.current().kind == TokenKind::Semicolon {
+            Some(self.next())
+        } else {
+            None
+        };
+        self.ast.create_expr_stmt(id, semicolon)
+    }
+
+    fn parse_if_stmt(&mut self) -> StmtId {
+        let if_expr = self.parse_if_expr();
+        self.ast.create_if_stmt(if_expr)
     }
 
     fn parse_let_stmt(&mut self) -> StmtId {
@@ -163,9 +173,16 @@ impl<'a> Parser<'a> {
         let type_decl = self.parse_optional_type_decl();
         let equals_token = self.expect(TokenKind::Equals);
         let expr = self.parse_expr(0);
+        let semicolon = self.expect(TokenKind::Semicolon);
 
-        self.ast
-            .create_let_stmt(keyword, identifier, type_decl, equals_token, expr)
+        self.ast.create_let_stmt(
+            keyword,
+            identifier,
+            type_decl,
+            equals_token,
+            expr,
+            semicolon,
+        )
     }
 
     fn parse_while_stmt(&mut self) -> StmtId {
@@ -179,8 +196,13 @@ impl<'a> Parser<'a> {
     fn parse_return_stmt(&mut self) -> StmtId {
         let keyword = self.expect(TokenKind::Return);
 
-        // TODO: Figure out how to optionally parse expression (probably using semicolon)
-        self.ast.create_return_stmt(keyword, None)
+        let mut expr = None;
+        if self.current().kind != TokenKind::Semicolon && !self.is_done() {
+            expr = Some(self.parse_expr(0));
+        }
+        let semicolon = self.expect(TokenKind::Semicolon);
+
+        self.ast.create_return_stmt(keyword, expr, semicolon)
     }
 
     fn parse_expr(&mut self, priority: usize) -> ExprId {
@@ -653,7 +675,7 @@ mod test {
 
     #[test]
     fn test_let() {
-        let text = "let x = 4";
+        let text = "let x = 4;";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::let_decl("x"));
@@ -662,7 +684,7 @@ mod test {
 
     #[test]
     fn test_let_with_type() {
-        let text = "let x: int = 4";
+        let text = "let x: int = 4;";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::let_decl("x"));
@@ -726,7 +748,7 @@ mod test {
 
     #[test]
     fn test_func_decl_block() {
-        let text = "fn f: int(i: int, b: bool) {i + b 4}";
+        let text = "fn f: int(i: int, b: bool) {i + b; 4}";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::Function);
@@ -746,7 +768,7 @@ mod test {
 
     #[test]
     fn test_return_void() {
-        let text = "return";
+        let text = "return;";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::Return);
@@ -756,7 +778,7 @@ mod test {
 
     #[test]
     fn test_return_value() {
-        let text = "return 4 + 3";
+        let text = "return 4 + 3;";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::Return);

@@ -155,6 +155,13 @@ impl AstVisitorMut for Resolver {
         }
     }
 
+    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, expr_stmt.expr);
+        if let Some(_) = expr_stmt.semicolon {
+            ast.set_type(expr_stmt.expr, Type::Void);
+        }
+    }
+
     fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
         self.visit_expr(ast, while_stmt.condition);
 
@@ -243,17 +250,30 @@ impl AstVisitorMut for Resolver {
         self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.exit_scope();
-        // todo: get type from return stmt
-        let typ = block_expr
-            .stmts
-            .last()
-            .map(|id| ast.query_stmt(*id))
-            .and_then(|stmt| match stmt.kind {
-                // TODO: only if no semicolon
-                StmtKind::Expr(expr) => Some(ast.query_expr(expr).typ.clone()),
-                _ => None,
-            })
-            .unwrap_or(Type::Void);
+
+        let mut typ = Type::Void;
+        block_expr.stmts.iter().enumerate().for_each(|(idx, id)| {
+            let stmt = ast.query_stmt(*id);
+            let is_last = idx == block_expr.stmts.len() - 1;
+            match &stmt.kind {
+                StmtKind::Expr(expr_stmt) => {
+                    if is_last {
+                        typ = ast.query_expr(expr_stmt.expr).typ.clone();
+                    } else {
+                        if expr_stmt.semicolon.is_none() {
+                            self.diagnostics
+                                .report_block_stmt_missing_semicolon(stmt.span);
+                        }
+                    }
+                }
+                StmtKind::If(if_expr) => {
+                    if is_last {
+                        typ = ast.query_expr(*if_expr).typ.clone();
+                    }
+                }
+                _ => (),
+            }
+        });
 
         ast.set_type(expr.id, typ);
     }

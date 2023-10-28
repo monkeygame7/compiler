@@ -48,10 +48,17 @@ impl Stmt {
 
 #[derive(Debug, Clone)]
 pub enum StmtKind {
-    Expr(ExprId),
+    Expr(ExprStmt),
+    If(ExprId),
     Let(LetStmt),
     While(WhileStmt),
     Return(ReturnStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct ExprStmt {
+    pub expr: ExprId,
+    pub semicolon: Option<SyntaxToken>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +69,7 @@ pub struct LetStmt {
     pub type_decl: Option<TypeDecl>,
     pub equals_token: SyntaxToken,
     pub initial: ExprId,
+    pub semicolon: SyntaxToken,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +83,7 @@ pub struct WhileStmt {
 pub struct ReturnStmt {
     pub keyword: SyntaxToken,
     pub value: Option<ExprId>,
+    pub semicolon: SyntaxToken,
 }
 
 #[derive(Debug, Clone)]
