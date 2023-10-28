@@ -478,7 +478,7 @@ mod test {
                 self.nodes
                     .push(Matcher::type_decl(&return_type.typ.literal))
             }
-            for param in &func.parameters {
+            for param in &func.params {
                 self.nodes.push(Matcher::ident(&param.token.literal));
                 self.nodes
                     .push(Matcher::type_decl(&param.type_decl.typ.literal));

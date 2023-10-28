@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Idx, IdxVec},
+    ast::{ExprId, Idx, IdxVec},
     compilation::Type,
     idx,
     parsing::SyntaxToken,
@@ -9,7 +9,13 @@ idx!(FunctionId);
 idx!(VariableId);
 
 #[derive(Debug)]
-pub struct Function {}
+pub struct Function {
+    pub id: FunctionId,
+    pub name: String,
+    pub return_type: Type,
+    pub params: Vec<VariableId>,
+    pub body: ExprId,
+}
 
 #[derive(Debug)]
 pub struct VariableSymbol {
@@ -38,14 +44,14 @@ impl GlobalScope {
 #[derive(Debug)]
 pub struct LocalScope {
     variables: Vec<VariableId>,
-    _function: Option<FunctionId>,
+    function: Option<FunctionId>,
 }
 
 impl LocalScope {
     pub fn new(function: Option<FunctionId>) -> Self {
         Self {
             variables: Vec::new(),
-            _function: function,
+            function,
         }
     }
 }
@@ -61,6 +67,27 @@ impl Scopes {
             local_scopes: Vec::new(),
             global_scope: GlobalScope::new(),
         }
+    }
+
+    pub fn declare_function(
+        &mut self,
+        identifier: &SyntaxToken,
+        return_type: Type,
+        params: Vec<VariableId>,
+        body: ExprId,
+    ) -> FunctionId {
+        let name: &str = &identifier.literal;
+        let func = Function {
+            id: FunctionId::default(),
+            name: name.to_string(),
+            return_type,
+            params,
+            body,
+        };
+
+        let id = self.global_scope.functions.push(func);
+        self.global_scope.functions[id].id = id;
+        id
     }
 
     pub fn lookup_variable(&self, identifier: &str) -> Option<&VariableSymbol> {
@@ -89,18 +116,21 @@ impl Scopes {
         if exists {
             None
         } else {
-            Some(self._new_variable(&identifier.literal, typ))
+            Some(self._new_variable(&identifier, typ))
         }
     }
 
-    fn _new_variable(&mut self, identifier: &str, typ: Type) -> VariableId {
+    pub fn create_unscoped_variable(&mut self, identifier: &SyntaxToken, typ: Type) -> VariableId {
         let symbol = VariableSymbol {
             identifier: identifier.to_string(),
             id: VariableId::default(),
             typ,
         };
+        self.global_scope.variables.push(symbol)
+    }
 
-        let id = self.global_scope.variables.push(symbol);
+    fn _new_variable(&mut self, identifier: &SyntaxToken, typ: Type) -> VariableId {
+        let id = self.create_unscoped_variable(identifier, typ);
         self.global_scope.variables[id].id = id;
 
         let destination = match self.local_scopes.last_mut() {
@@ -116,9 +146,34 @@ impl Scopes {
         self.local_scopes.push(LocalScope::new(None));
     }
 
+    pub fn enter_function_scope(&mut self, func: FunctionId) {
+        let mut scope = LocalScope::new(Some(func));
+        let func = &self.global_scope.functions[func];
+        for param in &func.params {
+            scope.variables.push(*param);
+        }
+        self.local_scopes.push(scope);
+    }
+
+    pub fn get_current_function(&self) -> Option<FunctionId> {
+        self.local_scopes
+            .iter()
+            .rev()
+            .flat_map(|scope| scope.function)
+            .nth(0)
+    }
+
     pub fn exit_scope(&mut self) {
         self.local_scopes
             .pop()
             .expect("Tried to exit scope but no scope found");
+    }
+
+    pub fn exit_function_scope(&mut self) {
+        self.local_scopes
+            .pop()
+            .expect("Tried to exit scope but no scope found")
+            .function
+            .expect("Tried to exit function scope, but not in a function");
     }
 }

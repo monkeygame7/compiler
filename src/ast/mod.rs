@@ -129,7 +129,7 @@ impl Ast {
             name,
             return_type,
             open_paren,
-            parameters,
+            params: parameters,
             close_paren,
             body,
             id: FunctionId::default(),

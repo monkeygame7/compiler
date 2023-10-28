@@ -38,6 +38,32 @@ impl Display for ResultType {
 use ResultType::*;
 
 impl AstVisitor for Evaluator {
+    fn visit_func_decl(&mut self, _ast: &Ast, _func: &FunctionDecl) {
+        // Do nothing
+    }
+
+    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, let_stmt.initial);
+        let value = self.last_result.take().unwrap();
+
+        let last_scope = self.scopes.last_mut().unwrap();
+        assert!(!&last_scope.contains_key(&let_stmt.variable));
+        last_scope.insert(let_stmt.variable, value);
+        self.last_result = Some(Void);
+    }
+
+    fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
+        loop {
+            self.visit_expr(ast, while_stmt.condition);
+            let condition = self.last_result.unwrap().to_bool();
+            if !condition {
+                break;
+            }
+
+            self.visit_expr(ast, while_stmt.body);
+        }
+    }
+
     fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
         self.last_result = Some(Undefined);
     }
@@ -129,6 +155,12 @@ impl AstVisitor for Evaluator {
         self.last_result = Some(result);
     }
 
+    fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, expr: &Expr) {
+        self.scopes.push(HashMap::new());
+        self.do_visit_block_expr(ast, block_expr, expr);
+        self.scopes.pop().expect("Unexpected empty scopes");
+    }
+
     fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
         self.last_result = self
             .scopes
@@ -137,34 +169,6 @@ impl AstVisitor for Evaluator {
             .flat_map(|vars| vars.get(&variable_expr.id))
             .nth(0)
             .cloned();
-    }
-
-    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
-        self.visit_expr(ast, let_stmt.initial);
-        let value = self.last_result.take().unwrap();
-
-        let last_scope = self.scopes.last_mut().unwrap();
-        assert!(!&last_scope.contains_key(&let_stmt.variable));
-        last_scope.insert(let_stmt.variable, value);
-        self.last_result = Some(Void);
-    }
-
-    fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
-        loop {
-            self.visit_expr(ast, while_stmt.condition);
-            let condition = self.last_result.unwrap().to_bool();
-            if !condition {
-                break;
-            }
-
-            self.visit_expr(ast, while_stmt.body);
-        }
-    }
-
-    fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, expr: &Expr) {
-        self.scopes.push(HashMap::new());
-        self.do_visit_block_expr(ast, block_expr, expr);
-        self.scopes.pop().expect("Unexpected empty scopes");
     }
 
     fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, _expr: &Expr) {
@@ -180,10 +184,6 @@ impl AstVisitor for Evaluator {
         } else if let Some(else_clause) = &if_expr.else_clause {
             self.visit_expr(ast, else_clause.body);
         }
-    }
-
-    fn visit_func_decl(&mut self, _ast: &Ast, _func: &FunctionDecl) {
-        todo!()
     }
 }
 
@@ -431,7 +431,23 @@ mod test {
             ("1 < 2", true),
             ("1 <= 2", true),
         ];
-        let void_cases = vec!["", "let x = 4"];
+        let void_cases = vec![
+            "",
+            "let x = 4",
+            "fn foo() {}",
+            "fn foo: int() 1",
+            "fn foo() {true let x = 1}",
+            "fn foo: int(x: int, y: bool) x",
+            "let x = true
+             fn foo: int(x: int, y: bool) x",
+            "let x = 4
+             fn foo: int() x",
+            "fn foo: int() {
+                true
+                false
+                1 + 2
+            }",
+        ];
         let undefined_cases = vec![
             "[$]",
             "[x] + 4",
@@ -469,6 +485,10 @@ mod test {
                     4 < 3
                 }]
             }",
+            "{
+                let x = 4
+            }
+            [x]",
             "if [100] true else false",
             "if true [let] [x] = 4",
             "while [1] {}",
@@ -479,6 +499,21 @@ mod test {
             "let x: bool = [5]
              x [+] 4",
             "let x: [foo] = 5",
+            "fn test: [foo]() {1}",
+            "fn test: int() [{true}]",
+            "fn test: int(x: [foo]) {x}",
+            "fn test: int(x: int, y: bool) [y]",
+            "fn test: int(x: int, y: bool) x [+] y",
+            "fn [if]: [foo](x: int, y: [boo]) x",
+            "fn test() [1]",
+            "fn[[[[]]]]",
+            "fn foo[[[]]]",
+            "fn foo([[]]",
+            "fn foo()[]",
+            "let x = 4
+             fn foo: int(x: bool) [x]",
+            "fn foo: int() 1
+             let x: int = [foo]",
         ];
 
         int_cases

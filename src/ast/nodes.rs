@@ -249,7 +249,7 @@ pub struct FunctionDecl {
     pub name: SyntaxToken,
     pub return_type: Option<TypeDecl>,
     pub open_paren: SyntaxToken,
-    pub parameters: Vec<FunctionParam>,
+    pub params: Vec<FunctionParam>,
     pub close_paren: SyntaxToken,
     pub body: ExprId,
     pub id: FunctionId,

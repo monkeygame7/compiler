@@ -31,7 +31,7 @@ impl Resolver {
     pub fn expect_type(&self, expected: &Type, actual: &Type, span: TextSpan) -> Type {
         // ignore if type is unresolved because that indicates type binding failed, which should
         // have already been reported as another error
-        if expected != actual && *actual != Type::Unresolved {
+        if expected != actual && *actual != Type::Unresolved && *expected != Type::Unresolved {
             self.diagnostics
                 .report_unexpected_type(&expected, actual, span);
         }
@@ -89,11 +89,50 @@ impl Resolver {
             result
         }
     }
+
+    fn extract_type(&mut self, d: &TypeDecl) -> Option<Type> {
+        match d.typ.literal.as_str() {
+            "int" => Some(Type::Int),
+            "bool" => Some(Type::Bool),
+            _ => {
+                self.diagnostics.report_undefined_type(&d.typ);
+                None
+            }
+        }
+    }
 }
 
 impl AstVisitorMut for Resolver {
-    fn visit_func_decl(&mut self, _ast: &mut Ast, _func: &FunctionDecl) {
-        todo!()
+    fn visit_func_decl(&mut self, ast: &mut Ast, func: &FunctionDecl) {
+        if self.scopes.lookup_function(&func.name.literal).is_some() {
+            self.diagnostics.report_already_declared(&func.name);
+        }
+
+        let return_type = func
+            .return_type
+            .as_ref()
+            .map(|d| self.extract_type(d).unwrap_or(Type::Unresolved))
+            .unwrap_or(Type::Void);
+        let params = func
+            .params
+            .iter()
+            .map(|param| {
+                let typ = self
+                    .extract_type(&param.type_decl)
+                    .unwrap_or(Type::Unresolved);
+                self.scopes.create_unscoped_variable(&param.token, typ)
+            })
+            .collect();
+        let id = self
+            .scopes
+            .declare_function(&func.name, return_type.clone(), params, func.body);
+
+        self.scopes.enter_function_scope(id);
+        self.visit_expr(ast, func.body);
+        self.scopes.exit_function_scope();
+
+        let expr = ast.query_expr(func.body);
+        self.expect_type(&return_type, &expr.typ, expr.span);
     }
 
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
@@ -103,14 +142,7 @@ impl AstVisitorMut for Resolver {
         let typ = let_stmt
             .type_decl
             .as_ref()
-            .and_then(|d| match d.typ.literal.as_str() {
-                "int" => Some(Type::Int),
-                "bool" => Some(Type::Bool),
-                _ => {
-                    self.diagnostics.report_undefined_type(&d.typ);
-                    None
-                }
-            })
+            .and_then(|d| self.extract_type(d))
             .map(|typ| self.expect_type(&typ, &initial_expr.typ, initial_expr.span))
             .unwrap_or_else(|| initial_expr.typ.clone());
 
