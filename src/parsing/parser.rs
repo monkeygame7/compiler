@@ -321,9 +321,28 @@ mod test {
         Unary(UnaryOperatorKind),
         LetDecl(String),
         Assign(String),
+        TypeDecl(String),
         If,
         Else,
         While,
+    }
+
+    impl Matcher {
+        fn ident(s: &str) -> Self {
+            Matcher::Ident(s.to_string())
+        }
+
+        fn let_decl(s: &str) -> Self {
+            Matcher::LetDecl(s.to_string())
+        }
+
+        fn assign(s: &str) -> Self {
+            Matcher::Assign(s.to_string())
+        }
+
+        fn type_decl(s: &str) -> Self {
+            Matcher::TypeDecl(s.to_string())
+        }
     }
 
     impl Display for Matcher {
@@ -342,14 +361,15 @@ mod test {
         text: SourceText,
         nodes: Vec<Matcher>,
         current: usize,
+        ast_s: String,
     }
 
     impl AssertingIterator {
-        fn new(text: String) -> Self {
+        fn new(text: &str) -> Self {
             let src = SourceText::from(&text).unwrap();
             let diagnostics = Rc::new(DiagnosticBag::new());
             let lexer = Lexer::new(&src);
-            let mut ast = Parser::parse(lexer, diagnostics.clone());
+            let ast = Parser::parse(lexer, diagnostics.clone());
 
             let errors: Vec<_> = diagnostics
                 .messages
@@ -357,12 +377,20 @@ mod test {
                 .iter()
                 .map(|dm| dm.message.clone())
                 .collect();
-            assert_eq!(errors.len(), 0, "Had errors parsing: {:?}", errors);
+            let ast_s = format!("{:?}", ast);
+            assert_eq!(
+                errors.len(),
+                0,
+                "Had errors parsing: {:?}\n{}\n",
+                errors,
+                ast_s
+            );
 
             let mut iter = AssertingIterator {
                 text: src,
                 nodes: vec![],
                 current: 0,
+                ast_s,
             };
 
             ast.visit(&mut iter);
@@ -373,8 +401,9 @@ mod test {
         fn assert(&mut self, matcher: Matcher) {
             assert!(
                 self.current < self.nodes.len(),
-                "Unable to match {:?}, ran out of tokens",
-                matcher
+                "Unable to match {:?}, ran out of tokens\n{}\n",
+                matcher,
+                self.ast_s
             );
             assert_eq!(
                 self.nodes[self.current], matcher,
@@ -385,57 +414,71 @@ mod test {
         }
 
         fn finish(&mut self) {
-            assert_eq!(self.current, self.nodes.len(), "Did not match all nodes");
+            assert_eq!(
+                self.current,
+                self.nodes.len(),
+                "Did not match all nodes: {:?}\n{}\n",
+                &self.nodes[self.current..],
+                self.ast_s
+            );
         }
     }
 
     impl AstVisitor for AssertingIterator {
-        fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
+        fn visit_func_decl(&mut self, _ast: &Ast, _func: &crate::ast::nodes::FunctionDecl) {
+            todo!()
+        }
+
+        fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
             self.nodes
-                .push(Matcher::LetDecl(let_stmt.identifier.literal.clone()));
+                .push(Matcher::let_decl(&let_stmt.identifier.literal));
+            if let Some(typ) = &let_stmt.type_decl {
+                self.nodes.push(Matcher::type_decl(&typ.typ.literal))
+            }
             self.visit_expr(ast, let_stmt.initial);
         }
 
-        fn visit_error(&mut self, _ast: &mut Ast, _span: &TextSpan, _expr: &Expr) {
+        fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
+            self.nodes.push(Matcher::While);
+            self.visit_expr(ast, while_stmt.condition);
+            self.visit_expr(ast, while_stmt.body);
+        }
+
+        fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
             self.nodes.push(Matcher::Bad);
         }
 
-        fn visit_integer_expr(&mut self, _ast: &mut Ast, int_expr: &IntegerExpr, _expr: &Expr) {
+        fn visit_integer_expr(&mut self, _ast: &Ast, int_expr: &IntegerExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Int(int_expr.value));
         }
 
-        fn visit_boolean_expr(&mut self, _ast: &mut Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
+        fn visit_boolean_expr(&mut self, _ast: &Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Bool(bool_expr.value));
         }
 
-        fn visit_binary_expr(&mut self, ast: &mut Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
+        fn visit_assign_expr(&mut self, ast: &Ast, assign_expr: &AssignExpr, _expr: &Expr) {
+            self.nodes
+                .push(Matcher::assign(&assign_expr.identifier.literal));
+            self.visit_expr(ast, assign_expr.rhs);
+        }
+
+        fn visit_binary_expr(&mut self, ast: &Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Binary(binary_expr.operator.kind));
             self.visit_expr(ast, binary_expr.left);
             self.visit_expr(ast, binary_expr.right);
         }
 
-        fn visit_unary_expr(&mut self, ast: &mut Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
+        fn visit_unary_expr(&mut self, ast: &Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
             self.nodes.push(Matcher::Unary(unary_expr.operator.kind));
             self.visit_expr(ast, unary_expr.operand);
         }
 
-        fn visit_variable_expr(
-            &mut self,
-            _ast: &mut Ast,
-            variable_expr: &VariableExpr,
-            _expr: &Expr,
-        ) {
+        fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
             self.nodes
-                .push(Matcher::Ident(variable_expr.token.literal.clone()));
+                .push(Matcher::ident(&variable_expr.token.literal));
         }
 
-        fn visit_assign_expr(&mut self, ast: &mut Ast, assign_expr: &AssignExpr, _expr: &Expr) {
-            self.nodes
-                .push(Matcher::Assign(assign_expr.identifier.literal.clone()));
-            self.visit_expr(ast, assign_expr.rhs);
-        }
-
-        fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, _expr: &Expr) {
+        fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, _expr: &Expr) {
             self.nodes.push(Matcher::If);
             self.visit_expr(ast, if_expr.condition);
             self.visit_expr(ast, if_expr.then_clause);
@@ -443,12 +486,6 @@ mod test {
                 self.nodes.push(Matcher::Else);
                 self.visit_expr(ast, else_clause.body);
             }
-        }
-
-        fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
-            self.nodes.push(Matcher::While);
-            self.visit_expr(ast, while_stmt.condition);
-            self.visit_expr(ast, while_stmt.body);
         }
     }
 
@@ -467,7 +504,7 @@ mod test {
                     })
                     .for_each(|(id1, id2)| {
                         let s = format!("{}{} {} {}", una.1, id1, bin.1, id2);
-                        let mut asserter = AssertingIterator::new(s);
+                        let mut asserter = AssertingIterator::new(&s);
                         asserter.assert(Matcher::Binary(bin.0));
                         asserter.assert(Matcher::Unary(una.0));
                         asserter.assert(id1);
@@ -493,7 +530,7 @@ mod test {
                     })
                     .for_each(|(id1, id2)| {
                         let s = format!("{} {} {}{}", id1, bin.1, una.1, id2);
-                        let mut asserter = AssertingIterator::new(s);
+                        let mut asserter = AssertingIterator::new(&s);
                         asserter.assert(Matcher::Binary(bin.0));
                         asserter.assert(id1);
                         asserter.assert(Matcher::Unary(una.0));
@@ -506,12 +543,12 @@ mod test {
 
     #[test]
     fn test_full() {
-        let text = "a + 2 * (!true && false) | (test / -+3)".to_string();
+        let text = "a + 2 * (!true && false) | (test / -+3)";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::Binary(BinaryOperatorKind::BitwiseOr));
         asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::Ident("a".to_string()));
+        asserter.assert(Matcher::ident("a"));
         asserter.assert(Matcher::Binary(BinaryOperatorKind::Mulitply));
         asserter.assert(Matcher::Int(2));
         asserter.assert(Matcher::Binary(BinaryOperatorKind::LogicalAnd));
@@ -519,7 +556,7 @@ mod test {
         asserter.assert(Matcher::Bool(true));
         asserter.assert(Matcher::Bool(false));
         asserter.assert(Matcher::Binary(BinaryOperatorKind::Divide));
-        asserter.assert(Matcher::Ident("test".to_string()));
+        asserter.assert(Matcher::ident("test"));
         asserter.assert(Matcher::Unary(UnaryOperatorKind::Negate));
         asserter.assert(Matcher::Unary(UnaryOperatorKind::Identity));
         asserter.assert(Matcher::Int(3));
@@ -529,27 +566,65 @@ mod test {
 
     #[test]
     fn test_assignment() {
-        let text = "x = 4".to_string();
+        let text = "x = 4";
         let mut asserter = AssertingIterator::new(text);
 
-        asserter.assert(Matcher::Assign("x".to_string()));
+        asserter.assert(Matcher::assign("x"));
+        asserter.assert(Matcher::Int(4));
+    }
+
+    #[test]
+    fn test_let() {
+        let text = "let x = 4";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::let_decl("x"));
+        asserter.assert(Matcher::Int(4));
+    }
+
+    #[test]
+    fn test_let_with_type() {
+        let text = "let x: int = 4";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::let_decl("x"));
+        asserter.assert(Matcher::type_decl("int"));
         asserter.assert(Matcher::Int(4));
     }
 
     #[test]
     fn test_if() {
-        let text = "if (a < 2) 1 else 3 + 2".to_string();
+        let text = "if (a < 2) 1 else 3 + 2";
         let mut asserter = AssertingIterator::new(text);
 
         asserter.assert(Matcher::If);
         asserter.assert(Matcher::Binary(BinaryOperatorKind::LessThan));
-        asserter.assert(Matcher::Ident("a".to_string()));
+        asserter.assert(Matcher::ident("a"));
         asserter.assert(Matcher::Int(2));
         asserter.assert(Matcher::Int(1));
         asserter.assert(Matcher::Else);
         asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
         asserter.assert(Matcher::Int(3));
         asserter.assert(Matcher::Int(2));
+    }
+
+    #[test]
+    fn test_while() {
+        let text = "while (i < 10) { i = i + 1 }";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::While);
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::LessThan));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::Int(10));
+
+        // Inside the while block
+        asserter.assert(Matcher::assign("i"));
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
+        asserter.assert(Matcher::ident("i"));
+        asserter.assert(Matcher::Int(1));
+
+        asserter.finish();
     }
 
     fn binary_operators() -> Vec<(BinaryOperatorKind, &'static str)> {
@@ -585,8 +660,8 @@ mod test {
             Matcher::Int(2),
             Matcher::Bool(false),
             Matcher::Bool(true),
-            Matcher::Ident("a".to_string()),
-            Matcher::Ident("b".to_string()),
+            Matcher::ident("a"),
+            Matcher::ident("b"),
         ]
     }
 }
