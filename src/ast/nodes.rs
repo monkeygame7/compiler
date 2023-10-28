@@ -51,6 +51,7 @@ pub enum StmtKind {
     Expr(ExprId),
     Let(LetStmt),
     While(WhileStmt),
+    Return(ReturnStmt),
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +69,12 @@ pub struct WhileStmt {
     pub keyword: SyntaxToken,
     pub condition: ExprId,
     pub body: ExprId,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReturnStmt {
+    pub keyword: SyntaxToken,
+    pub value: Option<ExprId>,
 }
 
 #[derive(Debug, Clone)]

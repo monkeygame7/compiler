@@ -64,6 +64,10 @@ impl AstVisitor for Evaluator {
         }
     }
 
+    fn visit_return_stmt(&mut self, _ast: &Ast, _return_stmt: &ReturnStmt, _stmt: &Stmt) {
+        todo!("evaluate return")
+    }
+
     fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
         self.last_result = Some(Undefined);
     }

@@ -132,6 +132,17 @@ impl AstVisitor for AstPrinter {
         });
     }
 
+    fn visit_return_stmt(&mut self, ast: &Ast, return_stmt: &ReturnStmt, _stmt: &Stmt) {
+        self.append_keyword(&return_stmt.keyword);
+
+        if let Some(expr) = return_stmt.value {
+            nested(self, |printer| {
+                printer.is_last = true;
+                printer.visit_expr(ast, expr);
+            })
+        }
+    }
+
     fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
         self.append_item("(ERROR)".red());
     }

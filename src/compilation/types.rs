@@ -164,6 +164,22 @@ impl AstVisitorMut for Resolver {
         self.visit_expr(ast, while_stmt.body);
     }
 
+    fn visit_return_stmt(&mut self, ast: &mut Ast, return_stmt: &ReturnStmt, stmt: &Stmt) {
+        let return_type = if let Some(value) = return_stmt.value {
+            self.visit_expr(ast, value);
+            &ast.query_expr(value).typ
+        } else {
+            &Type::Void
+        };
+
+        if let Some(func) = self.scopes.get_current_function() {
+            let func_type = &self.scopes.global_scope.functions[func].return_type;
+            self.expect_type(&func_type, &return_type, stmt.span);
+        } else {
+            todo!("report return outside function")
+        }
+    }
+
     fn visit_error(&mut self, ast: &mut Ast, _span: &TextSpan, expr: &Expr) {
         ast.set_type(expr.id, Type::Unresolved);
     }
@@ -226,7 +242,7 @@ impl AstVisitorMut for Resolver {
         self.scopes.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
         self.scopes.exit_scope();
-
+        // todo: get type from return stmt
         let typ = block_expr
             .stmts
             .last()

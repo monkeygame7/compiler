@@ -144,6 +144,7 @@ impl<'a> Parser<'a> {
         let id = match self.current().kind {
             TokenKind::Let => self.parse_let_stmt(),
             TokenKind::While => self.parse_while_stmt(),
+            TokenKind::Return => self.parse_return_stmt(),
             _ => self.parse_expr_stmt(),
         };
 
@@ -173,6 +174,13 @@ impl<'a> Parser<'a> {
         let body = self.parse_expr(0);
 
         self.ast.create_while_stmt(keyword, condition, body)
+    }
+
+    fn parse_return_stmt(&mut self) -> StmtId {
+        let keyword = self.expect(TokenKind::Return);
+
+        // TODO: Figure out how to optionally parse expression (probably using semicolon)
+        self.ast.create_return_stmt(keyword, None)
     }
 
     fn parse_expr(&mut self, priority: usize) -> ExprId {
@@ -371,6 +379,7 @@ mod test {
         Else,
         While,
         Function,
+        Return,
     }
 
     impl Matcher {
@@ -499,6 +508,18 @@ mod test {
             self.nodes.push(Matcher::While);
             self.visit_expr(ast, while_stmt.condition);
             self.visit_expr(ast, while_stmt.body);
+        }
+
+        fn visit_return_stmt(
+            &mut self,
+            ast: &Ast,
+            return_stmt: &crate::ast::nodes::ReturnStmt,
+            _stmt: &Stmt,
+        ) {
+            self.nodes.push(Matcher::Return);
+            if let Some(value) = return_stmt.value {
+                self.visit_expr(ast, value);
+            }
         }
 
         fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
@@ -719,6 +740,29 @@ mod test {
         asserter.assert(Matcher::ident("i"));
         asserter.assert(Matcher::ident("b"));
         asserter.assert(Matcher::Int(4));
+
+        asserter.finish();
+    }
+
+    #[test]
+    fn test_return_void() {
+        let text = "return";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::Return);
+
+        asserter.finish();
+    }
+
+    #[test]
+    fn test_return_value() {
+        let text = "return 4 + 3";
+        let mut asserter = AssertingIterator::new(text);
+
+        asserter.assert(Matcher::Return);
+        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
+        asserter.assert(Matcher::Int(4));
+        asserter.assert(Matcher::Int(3));
 
         asserter.finish();
     }

@@ -19,6 +19,7 @@ pub trait AstVisitor {
             StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
+            StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
     }
 
@@ -29,6 +30,8 @@ pub trait AstVisitor {
     fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, stmt: &Stmt);
 
     fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, stmt: &Stmt);
+
+    fn visit_return_stmt(&mut self, ast: &Ast, return_stmt: &ReturnStmt, stmt: &Stmt);
 
     fn visit_expr(&mut self, ast: &Ast, expr: ExprId) {
         let expr = ast.query_expr(expr).clone();
@@ -100,6 +103,7 @@ pub trait AstVisitorMut {
             StmtKind::Expr(expr) => self.visit_expr_stmt(ast, *expr, &stmt),
             StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
+            StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
     }
 
@@ -110,6 +114,8 @@ pub trait AstVisitorMut {
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt);
 
     fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, stmt: &Stmt);
+
+    fn visit_return_stmt(&mut self, ast: &mut Ast, return_stmt: &ReturnStmt, stmt: &Stmt);
 
     fn visit_expr(&mut self, ast: &mut Ast, expr: ExprId) {
         let expr = ast.query_expr(expr).clone();

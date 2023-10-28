@@ -195,6 +195,14 @@ impl Ast {
         )
     }
 
+    pub fn create_return_stmt(&mut self, keyword: SyntaxToken, value: Option<ExprId>) -> StmtId {
+        let mut span = keyword.span;
+        if let Some(expr) = value {
+            span = span.to(self.query_expr(expr).span);
+        }
+        self.create_stmt(StmtKind::Return(ReturnStmt { keyword, value }), span)
+    }
+
     pub fn create_error_expr(&mut self, span: TextSpan) -> ExprId {
         self.create_expr(ExprKind::Error(span), span)
     }

@@ -27,6 +27,7 @@ pub enum TokenKind {
     Colon,
     Comma,
     Fn,
+    Return,
 
     // int operators
     Plus,
@@ -186,6 +187,7 @@ impl<'a> Lexer<'a> {
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
             "fn" => TokenKind::Fn,
+            "return" => TokenKind::Return,
             _ => TokenKind::Identifier,
         }
     }
@@ -410,6 +412,7 @@ mod test {
             ("else", Else),
             ("while", While),
             ("fn", Fn),
+            ("return", Return),
         ]
         .into_iter()
         .map(|(l, r)| (l.to_string(), r))
@@ -443,14 +446,14 @@ mod test {
     }
 
     fn requires_separator(t1_kind: &TokenKind, t2_kind: &TokenKind) -> bool {
-        let matches = |k| match k {
-            &Let | &If | &Else | &While | &Identifier | &Boolean(_) | &Fn => true,
+        let is_literal = |k| match k {
+            &Let | &If | &Else | &While | &Identifier | &Boolean(_) | &Fn | &Return => true,
             _ => false,
         };
 
         match (t1_kind, t2_kind) {
-            (k1, k2) if matches(k1) && matches(k2) => true,
-            (k1, &Integer(_)) if matches(k1) => true,
+            (k1, k2) if is_literal(k1) && is_literal(k2) => true,
+            (k1, &Integer(_)) if is_literal(k1) => true,
             (&Integer(_), &Integer(_))
             | (&Ampersand, &Ampersand)
             | (&Ampersand, &AmpersandAmpersand)
