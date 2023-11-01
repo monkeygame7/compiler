@@ -133,7 +133,10 @@ impl<'a> Parser<'a> {
         let comma = if self.current().kind == TokenKind::Comma
             || (self.current().kind != TokenKind::RightParenthesis && !self.is_done())
         {
-            Some(self.expect(TokenKind::Comma))
+            // Only consume if comma is there, otherwise we will get a lot of noise
+            // in the diagnostic output because the rest of the function param parsing
+            // will be thrown off.
+            self.try_consume(TokenKind::Comma).ok()
         } else {
             None
         };
