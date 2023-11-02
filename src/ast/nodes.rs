@@ -265,7 +265,7 @@ pub struct FunctionDecl {
     pub name: SyntaxToken,
     pub return_type: Option<TypeDecl>,
     pub open_paren: SyntaxToken,
-    pub params: Vec<FunctionParam>,
+    pub params: DelimitedSequence<FunctionParam>,
     pub close_paren: SyntaxToken,
     pub body: ExprId,
     pub id: FunctionId,
@@ -276,17 +276,36 @@ pub struct FunctionParam {
     pub token: SyntaxToken,
     pub id: VariableId,
     pub type_decl: TypeDecl,
-    pub comma: Option<SyntaxToken>,
 }
 
 impl FunctionParam {
-    pub fn new(token: SyntaxToken, type_decl: TypeDecl, comma: Option<SyntaxToken>) -> Self {
+    pub fn new(token: SyntaxToken, type_decl: TypeDecl) -> Self {
         Self {
             token,
             id: VariableId::default(),
             type_decl,
-            comma,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DelimitedItem<T> {
+    pub item: T,
+    pub delim: Option<SyntaxToken>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DelimitedSequence<T> {
+    pub items: Vec<DelimitedItem<T>>,
+}
+
+impl<T> DelimitedSequence<T> {
+    pub fn new() -> Self {
+        DelimitedSequence { items: vec![] }
+    }
+
+    pub fn push(&mut self, item: T, comma: Option<SyntaxToken>) {
+        self.items.push(DelimitedItem { item, delim: comma })
     }
 }
 

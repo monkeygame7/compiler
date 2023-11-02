@@ -115,7 +115,9 @@ impl AstVisitorMut for Resolver {
             .unwrap_or(Type::Void);
         let params = func
             .params
+            .items
             .iter()
+            .map(|item| &item.item)
             .map(|param| {
                 let typ = self
                     .extract_type(&param.type_decl)

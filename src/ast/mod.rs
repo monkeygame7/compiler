@@ -120,7 +120,7 @@ impl Ast {
         name: SyntaxToken,
         return_type: Option<TypeDecl>,
         open_paren: SyntaxToken,
-        parameters: Vec<FunctionParam>,
+        params: DelimitedSequence<FunctionParam>,
         close_paren: SyntaxToken,
         body: ExprId,
     ) -> ItemId {
@@ -129,7 +129,7 @@ impl Ast {
             name,
             return_type,
             open_paren,
-            params: parameters,
+            params,
             close_paren,
             body,
             id: FunctionId::default(),

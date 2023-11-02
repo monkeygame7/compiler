@@ -90,17 +90,17 @@ impl AstVisitor for AstPrinter {
                     .unwrap_or("void")
                     .yellow()
             ));
-            if func.params.len() > 0 {
+            if func.params.items.len() > 0 {
                 printer.append_structural("params");
                 nested(printer, |printer| {
                     printer.is_last = false;
                     nested(printer, |printer| {
-                        for (i, param) in func.params.iter().enumerate() {
-                            printer.is_last = i == func.params.len() - 1;
+                        for (i, param) in func.params.items.iter().enumerate() {
+                            printer.is_last = i == func.params.items.len() - 1;
                             printer.append_item(format!(
                                 "{} ({})",
-                                param.token.literal.green(),
-                                param.type_decl.typ.literal.yellow()
+                                param.item.token.literal.green(),
+                                param.item.type_decl.typ.literal.yellow()
                             ))
                         }
                     });

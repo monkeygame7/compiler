@@ -3,8 +3,8 @@ use std::rc::Rc;
 use crate::{
     ast::{
         nodes::{
-            BinaryOperator, BinaryOperatorKind, ElseClause, FunctionParam, TypeDecl, UnaryOperator,
-            UnaryOperatorKind,
+            BinaryOperator, BinaryOperatorKind, DelimitedSequence, ElseClause, FunctionParam,
+            TypeDecl, UnaryOperator, UnaryOperatorKind,
         },
         Ast, ExprId, ItemId, StmtId,
     },
@@ -106,14 +106,12 @@ impl<'a> Parser<'a> {
         let keyword = self.expect(TokenKind::Fn);
         let name = self.expect(TokenKind::Identifier);
         let return_type = self.parse_optional_type_decl();
-        let open_paren = self.expect(TokenKind::LeftParenthesis);
-
-        let mut parameters = vec![];
-        while self.current().kind != TokenKind::RightParenthesis && !self.is_done() {
-            parameters.push(self.parse_func_param());
-        }
-
-        let close_paren = self.expect(TokenKind::RightParenthesis);
+        let (open_paren, parameters, close_paren) = self.parse_delimited_sequence(
+            TokenKind::LeftParenthesis,
+            TokenKind::Comma,
+            TokenKind::RightParenthesis,
+            |parser| parser.parse_func_param(),
+        );
         let body = self.parse_expr(0);
 
         self.ast.create_function_item(
@@ -127,20 +125,39 @@ impl<'a> Parser<'a> {
         )
     }
 
+    fn parse_delimited_sequence<T>(
+        &mut self,
+        open: TokenKind,
+        delim: TokenKind,
+        close: TokenKind,
+        mut f: impl FnMut(&mut Parser) -> T,
+    ) -> (SyntaxToken, DelimitedSequence<T>, SyntaxToken) {
+        let open = self.expect(open);
+
+        let mut seq = DelimitedSequence::new();
+        while self.current().kind != close && !self.is_done() {
+            let item = f(self);
+            let delim = if self.current().kind == TokenKind::Comma
+                || (self.current().kind != close && !self.is_done())
+            {
+                // Only consume if delim is there, otherwise we will get a lot of noise
+                // in the diagnostic output because the rest of the function param parsing
+                // will be thrown off.
+                self.try_consume(&delim).ok()
+            } else {
+                None
+            };
+            seq.push(item, delim);
+        }
+
+        let close = self.expect(close);
+        (open, seq, close)
+    }
+
     fn parse_func_param(&mut self) -> FunctionParam {
         let token = self.expect(TokenKind::Identifier);
         let type_decl = self.parse_type_decl();
-        let comma = if self.current().kind == TokenKind::Comma
-            || (self.current().kind != TokenKind::RightParenthesis && !self.is_done())
-        {
-            // Only consume if comma is there, otherwise we will get a lot of noise
-            // in the diagnostic output because the rest of the function param parsing
-            // will be thrown off.
-            self.try_consume(TokenKind::Comma).ok()
-        } else {
-            None
-        };
-        FunctionParam::new(token, type_decl, comma)
+        FunctionParam::new(token, type_decl)
     }
 
     fn parse_stmt(&mut self) -> StmtId {
@@ -177,7 +194,7 @@ impl<'a> Parser<'a> {
         let equals_token = self.expect(TokenKind::Equals);
         let expr = self.parse_expr(0);
 
-        let semicolon = match self.try_consume(TokenKind::Semicolon) {
+        let semicolon = match self.try_consume(&TokenKind::Semicolon) {
             Ok(s) => s,
             Err(s) => s,
         };
@@ -207,7 +224,7 @@ impl<'a> Parser<'a> {
         if self.current().kind != TokenKind::Semicolon && !self.is_done() {
             expr = Some(self.parse_expr(0));
         }
-        let semicolon = match self.try_consume(TokenKind::Semicolon) {
+        let semicolon = match self.try_consume(&TokenKind::Semicolon) {
             Ok(s) => s,
             Err(s) => s,
         };
@@ -369,9 +386,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn try_consume(&mut self, expected_kind: TokenKind) -> Result<SyntaxToken, SyntaxToken> {
+    fn try_consume(&mut self, expected_kind: &TokenKind) -> Result<SyntaxToken, SyntaxToken> {
         let current = self.current();
-        if current.kind == expected_kind {
+        if &current.kind == expected_kind {
             Ok(self.next())
         } else {
             self.diagnostics
@@ -530,10 +547,10 @@ mod test {
                 self.nodes
                     .push(Matcher::type_decl(&return_type.typ.literal))
             }
-            for param in &func.params {
-                self.nodes.push(Matcher::ident(&param.token.literal));
+            for param in &func.params.items {
+                self.nodes.push(Matcher::ident(&param.item.token.literal));
                 self.nodes
-                    .push(Matcher::type_decl(&param.type_decl.typ.literal));
+                    .push(Matcher::type_decl(&param.item.type_decl.typ.literal));
             }
             self.visit_expr(ast, func.body);
         }
