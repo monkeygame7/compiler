@@ -2,6 +2,7 @@ mod scope;
 mod types;
 pub use scope::FunctionId;
 pub use scope::VariableId;
+pub use types::FunctionSignature;
 pub use types::Type;
 
 use std::rc::Rc;

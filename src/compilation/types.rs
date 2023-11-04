@@ -13,6 +13,13 @@ pub enum Type {
     Bool,
     Unresolved,
     Void,
+    Function(Box<FunctionSignature>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct FunctionSignature {
+    pub return_type: Type,
+    pub params: Vec<Type>,
 }
 
 pub struct Resolver {
@@ -182,7 +189,9 @@ impl AstVisitorMut for Resolver {
         };
 
         if let Some(func) = self.scopes.get_current_function() {
-            let func_type = &self.scopes.global_scope.functions[func].return_type;
+            let func_type = &self.scopes.global_scope.functions[func]
+                .signature
+                .return_type;
             self.expect_type(&func_type, &return_type, stmt.span);
         } else {
             self.diagnostics
@@ -318,12 +327,33 @@ impl AstVisitorMut for Resolver {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Type::Int => "<int>",
-            Type::Bool => "<bool>",
-            Type::Void => "<void>",
-            Type::Unresolved => "UNRESOLVED",
+            Type::Int => "<int>".to_string(),
+            Type::Bool => "<bool>".to_string(),
+            Type::Void => "<void>".to_string(),
+            Type::Unresolved => "UNRESOLVED".to_string(),
+            Type::Function(sig) => sig.to_string(),
         };
 
         write!(f, "{}", s)
+    }
+}
+
+impl Display for FunctionSignature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut params_s = String::from("(");
+
+        let mut param_iter = self.params.iter();
+        if let Some(param) = param_iter.next() {
+            params_s += &param.to_string();
+        }
+
+        for param in param_iter {
+            params_s += ",";
+            params_s += &param.to_string();
+        }
+
+        params_s += ")";
+
+        write!(f, "{}{}", self.return_type, params_s)
     }
 }
