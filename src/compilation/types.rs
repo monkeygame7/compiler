@@ -336,15 +336,19 @@ impl AstVisitorMut for Resolver {
         self.expect_type(&Type::Bool, &condition.typ, condition.span);
 
         self.visit_expr(ast, if_expr.then_clause);
-        let then_typ = ast.query_expr(if_expr.then_clause).typ.clone();
 
-        if let Some(else_clause) = &if_expr.else_clause {
-            self.visit_expr(ast, else_clause.body);
-            let else_body = &ast.query_expr(else_clause.body);
-            self.expect_type(&then_typ, &else_body.typ, else_body.span);
-        }
+        let typ = match &if_expr.else_clause {
+            Some(else_clause) => {
+                let then_typ = ast.query_expr(if_expr.then_clause).typ.clone();
+                self.visit_expr(ast, else_clause.body);
+                let else_body = &ast.query_expr(else_clause.body);
+                self.expect_type(&then_typ, &else_body.typ, else_body.span);
+                then_typ
+            }
+            _ => Type::Void,
+        };
 
-        ast.set_type(expr.id, then_typ);
+        ast.set_type(expr.id, typ);
     }
 
     fn visit_call_expr(&mut self, ast: &mut Ast, call_expr: &CallExpr, expr: &Expr) {

@@ -579,6 +579,9 @@ mod test {
                 return 1;
              }
              let x: bool = [foo()];",
+            "let x: int = [if true {1}];",
+            "let x = if true{1};
+             x [+] 1",
         ];
 
         int_cases
