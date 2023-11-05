@@ -481,6 +481,12 @@ mod test {
                 let y = foo;
                 y();
             }",
+            "fn foo: int() {
+                if true {
+                    return 1;
+                }
+                2
+            }",
         ];
         let undefined_cases = vec![
             "[$]",
@@ -582,6 +588,13 @@ mod test {
             "let x: int = [if true {1}];",
             "let x = if true{1};
              x [+] 1",
+            "fn foo: int() {return [false];}",
+            "fn foo: int() {
+                if true {
+                    return [false];
+                }
+                2
+            }",
         ];
 
         int_cases

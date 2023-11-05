@@ -203,12 +203,14 @@ impl AstVisitorMut for Resolver {
             Type::Void
         };
 
-        let StmtKind::Return(ret_stmt_mut) = &mut ast.query_stmt_mut(stmt.id).kind  else {panic!()};
-        ret_stmt_mut.typ = return_type.clone();
-
         if let Some(func) = self.scopes.get_current_function() {
             let func_type = &self.scopes.global_scope.functions[func].sig.return_type;
-            self.expect_type(&func_type, &return_type, stmt.span);
+            let span = match return_stmt.value {
+                Some(id) => ast.query_expr(id).span,
+                None => stmt.span,
+            };
+            let StmtKind::Return(ret_stmt_mut) = &mut ast.query_stmt_mut(stmt.id).kind  else {panic!()};
+            ret_stmt_mut.typ = self.expect_type(&func_type, &return_type, span);
         } else {
             self.diagnostics
                 .report_return_outside_function(&return_stmt.keyword);
