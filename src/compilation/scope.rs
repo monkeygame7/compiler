@@ -5,7 +5,7 @@ use crate::{
     parsing::SyntaxToken,
 };
 
-use super::FunctionSignature;
+use super::Signature;
 
 idx!(FunctionId);
 idx!(VariableId);
@@ -16,7 +16,7 @@ pub struct Function {
     pub name: String,
     pub params: Vec<VariableId>,
     pub body: ExprId,
-    pub signature: FunctionSignature,
+    pub sig: Signature,
 }
 
 #[derive(Debug)]
@@ -86,21 +86,22 @@ impl Scopes {
         params: Vec<VariableId>,
         body: ExprId,
     ) -> FunctionId {
-        let name: &str = &identifier.literal;
+        let name = &identifier.literal;
         let params_sig = params
             .iter()
             .map(|id| &self.global_scope.variables[*id])
             .map(|v| v.typ.clone())
-            .collect();
+            .collect::<Vec<_>>();
+        let sig = Signature {
+            return_type,
+            params: params_sig.into(),
+        };
         let func = Function {
             id: FunctionId::default(),
-            name: name.to_string(),
+            name: name.to_owned(),
             params,
             body,
-            signature: FunctionSignature {
-                return_type,
-                params: params_sig,
-            },
+            sig,
         };
 
         let id = self.global_scope.functions.push(func);

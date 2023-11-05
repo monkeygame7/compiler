@@ -6,8 +6,8 @@ use std::{
 pub use text::SourceText;
 pub use text::TextSpan;
 
-use crate::ast::nodes::BinaryOperator;
 use crate::ast::nodes::UnaryOperator;
+use crate::{ast::nodes::BinaryOperator, compilation::Types};
 use crate::{
     compilation::Type,
     parsing::{SyntaxToken, TokenKind},
@@ -117,6 +117,21 @@ impl DiagnosticBag {
 
     pub fn report_return_outside_function(&self, token: &SyntaxToken) {
         self.add_message("Cannot return outside of function".to_owned(), token.span);
+    }
+
+    pub fn report_incorrect_arguments(
+        &self,
+        expected_types: &Types,
+        given_types: &Types,
+        span: TextSpan,
+    ) {
+        self.add_message(
+            format!(
+                "Incorrect arguments provided. Expected {} but was given {}",
+                expected_types, given_types
+            ),
+            span,
+        );
     }
 }
 

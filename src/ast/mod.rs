@@ -220,6 +220,7 @@ impl Ast {
                 keyword,
                 value,
                 semicolon,
+                typ: Type::Unresolved,
             }),
             span,
         )

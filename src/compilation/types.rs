@@ -7,19 +7,34 @@ use crate::{
 
 use super::scope::Scopes;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Eq)]
 pub enum Type {
     Int,
     Bool,
     Unresolved,
     Void,
-    Function(Box<FunctionSignature>),
+    Func(Box<Signature>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct FunctionSignature {
+impl Type {
+    pub fn func(sig: &Signature) -> Self {
+        Type::Func(Box::new(sig.clone()))
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct Types(Vec<Type>);
+
+impl From<Vec<Type>> for Types {
+    fn from(value: Vec<Type>) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub struct Signature {
     pub return_type: Type,
-    pub params: Vec<Type>,
+    pub params: Types,
 }
 
 pub struct Resolver {
@@ -144,6 +159,13 @@ impl AstVisitorMut for Resolver {
         self.expect_type(&return_type, &expr.typ, expr.span);
     }
 
+    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
+        self.visit_expr(ast, expr_stmt.expr);
+        if let Some(_) = expr_stmt.semicolon {
+            ast.set_type(expr_stmt.expr, Type::Void);
+        }
+    }
+
     fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
         self.visit_expr(ast, let_stmt.initial);
         let initial_expr = ast.query_expr(let_stmt.initial);
@@ -164,13 +186,6 @@ impl AstVisitorMut for Resolver {
         }
     }
 
-    fn visit_expr_stmt(&mut self, ast: &mut Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
-        self.visit_expr(ast, expr_stmt.expr);
-        if let Some(_) = expr_stmt.semicolon {
-            ast.set_type(expr_stmt.expr, Type::Void);
-        }
-    }
-
     fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
         self.visit_expr(ast, while_stmt.condition);
 
@@ -183,15 +198,16 @@ impl AstVisitorMut for Resolver {
     fn visit_return_stmt(&mut self, ast: &mut Ast, return_stmt: &ReturnStmt, stmt: &Stmt) {
         let return_type = if let Some(value) = return_stmt.value {
             self.visit_expr(ast, value);
-            &ast.query_expr(value).typ
+            ast.query_expr(value).typ.clone()
         } else {
-            &Type::Void
+            Type::Void
         };
 
+        let StmtKind::Return(ret_stmt_mut) = &mut ast.query_stmt_mut(stmt.id).kind  else {panic!()};
+        ret_stmt_mut.typ = return_type.clone();
+
         if let Some(func) = self.scopes.get_current_function() {
-            let func_type = &self.scopes.global_scope.functions[func]
-                .signature
-                .return_type;
+            let func_type = &self.scopes.global_scope.functions[func].sig.return_type;
             self.expect_type(&func_type, &return_type, stmt.span);
         } else {
             self.diagnostics
@@ -263,12 +279,13 @@ impl AstVisitorMut for Resolver {
         self.scopes.exit_scope();
 
         let mut typ = Type::Void;
+        let mut has_return = false;
         block_expr.stmts.iter().enumerate().for_each(|(idx, id)| {
             let stmt = ast.query_stmt(*id);
             let is_last = idx == block_expr.stmts.len() - 1;
             match &stmt.kind {
                 StmtKind::Expr(expr_stmt) => {
-                    if is_last {
+                    if is_last && !has_return {
                         typ = ast.query_expr(expr_stmt.expr).typ.clone();
                     } else {
                         if expr_stmt.semicolon.is_none() {
@@ -277,8 +294,15 @@ impl AstVisitorMut for Resolver {
                     }
                 }
                 StmtKind::If(if_expr) => {
-                    if is_last {
+                    if is_last && !has_return {
                         typ = ast.query_expr(*if_expr).typ.clone();
+                    }
+                }
+                StmtKind::Return(return_stmt) => {
+                    has_return = true;
+                    typ = return_stmt.typ.clone();
+                    if !is_last {
+                        todo!("return not last");
                     }
                 }
                 _ => (),
@@ -331,29 +355,35 @@ impl Display for Type {
             Type::Bool => "<bool>".to_string(),
             Type::Void => "<void>".to_string(),
             Type::Unresolved => "UNRESOLVED".to_string(),
-            Type::Function(sig) => sig.to_string(),
+            Type::Func(sig) => sig.to_string(),
         };
 
         write!(f, "{}", s)
     }
 }
 
-impl Display for FunctionSignature {
+impl Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.return_type, self.params)
+    }
+}
+
+impl Display for Types {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut params_s = String::from("(");
 
-        let mut param_iter = self.params.iter();
+        let mut param_iter = self.0.iter();
         if let Some(param) = param_iter.next() {
             params_s += &param.to_string();
         }
 
         for param in param_iter {
-            params_s += ",";
+            params_s += ", ";
             params_s += &param.to_string();
         }
 
         params_s += ")";
 
-        write!(f, "{}{}", self.return_type, params_s)
+        f.write_str(&params_s)
     }
 }

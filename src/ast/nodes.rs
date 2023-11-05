@@ -84,6 +84,7 @@ pub struct ReturnStmt {
     pub keyword: SyntaxToken,
     pub value: Option<ExprId>,
     pub semicolon: SyntaxToken,
+    pub typ: Type,
 }
 
 #[derive(Debug, Clone)]
