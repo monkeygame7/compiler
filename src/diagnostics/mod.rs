@@ -119,6 +119,10 @@ impl DiagnosticBag {
         self.add_message("Cannot return outside of function".to_owned(), token.span);
     }
 
+    pub fn report_not_callable(&self, typ: &Type, span: TextSpan) {
+        self.add_message(format!("{} is not callable", typ), span)
+    }
+
     pub fn report_incorrect_arguments(
         &self,
         expected_types: &Types,

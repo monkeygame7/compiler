@@ -61,6 +61,7 @@ pub trait AstVisitor {
                 self.visit_variable_expr(ast, &variable_expr, &expr)
             }
             ExprKind::If(if_expr) => self.visit_if_expr(ast, &if_expr, &expr),
+            ExprKind::CallExpr(call_expr) => self.visit_call_expr(ast, &call_expr, &expr),
         }
     }
 
@@ -93,6 +94,8 @@ pub trait AstVisitor {
     fn visit_variable_expr(&mut self, ast: &Ast, variable_expr: &VariableExpr, expr: &Expr);
 
     fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, expr: &Expr);
+
+    fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, expr: &Expr);
 }
 
 pub trait AstVisitorMut {
@@ -154,6 +157,7 @@ pub trait AstVisitorMut {
                 self.visit_variable_expr(ast, &variable_expr, &expr)
             }
             ExprKind::If(if_expr) => self.visit_if_expr(ast, &if_expr, &expr),
+            ExprKind::CallExpr(call_expr) => self.visit_call_expr(ast, &call_expr, &expr),
         }
     }
 
@@ -186,4 +190,6 @@ pub trait AstVisitorMut {
     fn visit_variable_expr(&mut self, ast: &mut Ast, variable_expr: &VariableExpr, expr: &Expr);
 
     fn visit_if_expr(&mut self, ast: &mut Ast, if_expr: &IfExpr, expr: &Expr);
+
+    fn visit_call_expr(&mut self, ast: &mut Ast, call_expr: &CallExpr, expr: &Expr);
 }

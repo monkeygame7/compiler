@@ -118,6 +118,7 @@ pub enum ExprKind {
     Block(BlockExpr),
     Variable(VariableExpr),
     If(IfExpr),
+    CallExpr(CallExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -285,6 +286,32 @@ impl FunctionParam {
             token,
             id: VariableId::default(),
             type_decl,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallExpr {
+    pub callee: ExprId,
+    pub open_paren: SyntaxToken,
+    pub args: DelimitedSequence<ExprId>,
+    pub close_paren: SyntaxToken,
+    pub callee_id: FunctionId,
+}
+
+impl CallExpr {
+    pub fn new(
+        callee: ExprId,
+        open_paren: SyntaxToken,
+        args: DelimitedSequence<ExprId>,
+        close_paren: SyntaxToken,
+    ) -> Self {
+        Self {
+            callee,
+            open_paren,
+            args,
+            close_paren,
+            callee_id: FunctionId::default(),
         }
     }
 }

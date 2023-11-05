@@ -350,4 +350,18 @@ impl Ast {
             span,
         )
     }
+
+    pub fn create_call_expr(
+        &mut self,
+        callee: ExprId,
+        open_paren: SyntaxToken,
+        args: DelimitedSequence<ExprId>,
+        close_paren: SyntaxToken,
+    ) -> ExprId {
+        let span = self.query_expr(callee).span.to(close_paren.span);
+        self.create_expr(
+            ExprKind::CallExpr(CallExpr::new(callee, open_paren, args, close_paren)),
+            span,
+        )
+    }
 }

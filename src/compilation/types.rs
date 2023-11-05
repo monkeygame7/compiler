@@ -346,6 +346,35 @@ impl AstVisitorMut for Resolver {
 
         ast.set_type(expr.id, then_typ);
     }
+
+    fn visit_call_expr(&mut self, ast: &mut Ast, call_expr: &CallExpr, expr: &Expr) {
+        self.visit_expr(ast, call_expr.callee);
+        let callee = ast.query_expr(call_expr.callee);
+
+        let Type::Func(sig) = &callee.typ else {
+                self.diagnostics
+                    .report_not_callable(&callee.typ, callee.span);
+                return;
+            };
+
+        let params = sig.params.clone();
+        let return_type = sig.return_type.clone();
+
+        let mut arg_types: Types = vec![].into();
+
+        for item in &call_expr.args.items {
+            let id = item.item;
+            self.visit_expr(ast, id);
+            arg_types.0.push(ast.query_expr(id).typ.clone());
+        }
+
+        if params != arg_types {
+            let span = call_expr.open_paren.span.to(call_expr.close_paren.span);
+            self.diagnostics
+                .report_incorrect_arguments(&params, &arg_types, span);
+        }
+        ast.set_type(expr.id, return_type);
+    }
 }
 
 impl Display for Type {

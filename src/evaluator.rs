@@ -196,6 +196,10 @@ impl AstVisitor for Evaluator {
             self.visit_expr(ast, else_clause.body);
         }
     }
+
+    fn visit_call_expr(&mut self, _ast: &Ast, _call_expr: &CallExpr, _expr: &Expr) {
+        todo!("call expr")
+    }
 }
 
 impl Evaluator {
@@ -472,6 +476,11 @@ mod test {
                 2;
                 3;
             }",
+            "fn foo() {foo()}",
+            "fn foo() {
+                let y = foo;
+                y();
+            }",
         ];
         let undefined_cases = vec![
             "[$]",
@@ -549,9 +558,27 @@ mod test {
             "let x = 4[]",
             "fn foo: int() [{1;}]",
             "fn foo: int() 1[;]",
-            "fn foo: int() [{return 1[}]]",
+            "fn foo: int() {return 1[}]",
             "fn foo() {let x = 4[}]",
             "fn foo(x: int [y]: int [z]: int) {}",
+            "fn foo(x: int, y: int) {
+                foo[(true, false)]
+            }",
+            "[1](1, 2, 3)",
+            "[true]()",
+            "fn foo(x: int) {
+                foo[()]
+            }",
+            "fn foo() {
+                foo[(1)]
+            }",
+            "fn foo(x: int) {
+                foo[(foo(1))]
+            }",
+            "fn foo: int() {
+                return 1;
+             }
+             let x: bool = [foo()];",
         ];
 
         int_cases

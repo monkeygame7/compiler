@@ -17,6 +17,7 @@ pub struct Function {
     pub params: Vec<VariableId>,
     pub body: ExprId,
     pub sig: Signature,
+    pub var: VariableId,
 }
 
 #[derive(Debug)]
@@ -96,12 +97,14 @@ impl Scopes {
             return_type,
             params: params_sig.into(),
         };
+        let var = self._new_variable(identifier, Type::func(&sig));
         let func = Function {
             id: FunctionId::default(),
             name: name.to_owned(),
             params,
             body,
             sig,
+            var,
         };
 
         let id = self.global_scope.functions.push(func);

@@ -249,6 +249,32 @@ impl AstVisitor for AstPrinter {
             }
         });
     }
+
+    fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, _expr: &Expr) {
+        self.append_structural("call");
+
+        nested(self, |p| {
+            p.is_last = call_expr.args.items.is_empty();
+            p.append_structural("target");
+            nested(p, |p| {
+                p.is_last = true;
+                p.visit_expr(ast, call_expr.callee);
+            });
+            if !p.is_last {
+                p.is_last = true;
+                p.append_structural("args");
+                nested(p, |p| {
+                    p.is_last = false;
+                    for arg in &call_expr.args.items {
+                        if arg.item == call_expr.args.items.last().unwrap().item {
+                            p.is_last = true;
+                        }
+                        p.visit_expr(ast, arg.item);
+                    }
+                });
+            }
+        })
+    }
 }
 
 fn nested(printer: &mut AstPrinter, mut func: impl FnMut(&mut AstPrinter)) {

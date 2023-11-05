@@ -369,7 +369,22 @@ impl<'a> Parser<'a> {
             }
         };
 
-        id
+        match self.current().kind {
+            TokenKind::LeftParenthesis => self.parse_call_expr(id),
+            _ => id,
+        }
+    }
+
+    fn parse_call_expr(&mut self, callee: ExprId) -> ExprId {
+        let (open_paren, args, close_paren) = self.parse_delimited_sequence(
+            TokenKind::LeftParenthesis,
+            TokenKind::Comma,
+            TokenKind::RightParenthesis,
+            |p| p.parse_expr(0),
+        );
+
+        self.ast
+            .create_call_expr(callee, open_paren, args, close_paren)
     }
 
     fn parse_type_decl(&mut self) -> TypeDecl {
@@ -414,8 +429,8 @@ mod test {
     use crate::{
         ast::{
             nodes::{
-                AssignExpr, BinaryExpr, BooleanExpr, Expr, IfExpr, IntegerExpr, LetStmt, Stmt,
-                UnaryExpr, VariableExpr, WhileStmt,
+                AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, IfExpr, IntegerExpr, LetStmt,
+                Stmt, UnaryExpr, VariableExpr, WhileStmt,
             },
             AstVisitor,
         },
@@ -440,6 +455,8 @@ mod test {
         While,
         Function,
         Return,
+        Call,
+        Seq(Box<Vec<Matcher>>),
     }
 
     impl Matcher {
@@ -457,6 +474,10 @@ mod test {
 
         fn type_decl(s: &str) -> Self {
             Matcher::TypeDecl(s.to_string())
+        }
+
+        fn seq(args: &[Matcher]) -> Self {
+            Matcher::Seq(Box::new(args.to_vec()))
         }
     }
 
@@ -480,6 +501,12 @@ mod test {
     }
 
     impl AssertingIterator {
+        fn run(text: &str, matches: &[Matcher]) {
+            let mut asserter = Self::new(text);
+            matches.into_iter().for_each(|m| asserter.assert(m));
+            asserter.finish();
+        }
+
         fn new(text: &str) -> Self {
             let src = SourceText::from(&text).unwrap();
             let diagnostics = Rc::new(DiagnosticBag::new());
@@ -513,7 +540,7 @@ mod test {
             iter
         }
 
-        fn assert(&mut self, matcher: Matcher) {
+        fn assert(&mut self, matcher: &Matcher) {
             assert!(
                 self.current < self.nodes.len(),
                 "Unable to match {:?}, ran out of tokens\n{}\n",
@@ -521,7 +548,7 @@ mod test {
                 self.ast_s
             );
             assert_eq!(
-                self.nodes[self.current], matcher,
+                &self.nodes[self.current], matcher,
                 "'{}'\n{:?}",
                 self.text.text, self.nodes
             );
@@ -532,8 +559,9 @@ mod test {
             assert_eq!(
                 self.current,
                 self.nodes.len(),
-                "Did not match all nodes: {:?}\n{}\n",
+                "Did not match all nodes: {:?}\n{}\n{}\n",
                 &self.nodes[self.current..],
+                self.text.text,
                 self.ast_s
             );
         }
@@ -547,11 +575,12 @@ mod test {
                 self.nodes
                     .push(Matcher::type_decl(&return_type.typ.literal))
             }
+            let mut params = vec![];
             for param in &func.params.items {
-                self.nodes.push(Matcher::ident(&param.item.token.literal));
-                self.nodes
-                    .push(Matcher::type_decl(&param.item.type_decl.typ.literal));
+                params.push(Matcher::ident(&param.item.token.literal));
+                params.push(Matcher::type_decl(&param.item.type_decl.typ.literal));
             }
+            self.nodes.push(Matcher::seq(&params));
             self.visit_expr(ast, func.body);
         }
 
@@ -625,6 +654,20 @@ mod test {
                 self.visit_expr(ast, else_clause.body);
             }
         }
+
+        fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, _expr: &Expr) {
+            self.nodes.push(Matcher::Call);
+            self.visit_expr(ast, call_expr.callee);
+            let start_idx = self.nodes.len();
+            for arg in &call_expr.args.items {
+                self.visit_expr(ast, arg.item);
+            }
+            let mut args = vec![];
+            while self.nodes.len() > start_idx {
+                args.push(self.nodes.remove(start_idx))
+            }
+            self.nodes.push(Matcher::seq(&args));
+        }
     }
 
     #[test]
@@ -642,13 +685,10 @@ mod test {
                     })
                     .for_each(|(id1, id2)| {
                         let s = format!("{}{} {} {}", una.1, id1, bin.1, id2);
-                        let mut asserter = AssertingIterator::new(&s);
-                        asserter.assert(Matcher::Binary(bin.0));
-                        asserter.assert(Matcher::Unary(una.0));
-                        asserter.assert(id1);
-                        asserter.assert(id2);
-
-                        asserter.finish();
+                        AssertingIterator::run(
+                            &s,
+                            &[Matcher::Binary(bin.0), Matcher::Unary(una.0), id1, id2],
+                        );
                     })
             })
     }
@@ -668,13 +708,10 @@ mod test {
                     })
                     .for_each(|(id1, id2)| {
                         let s = format!("{} {} {}{}", id1, bin.1, una.1, id2);
-                        let mut asserter = AssertingIterator::new(&s);
-                        asserter.assert(Matcher::Binary(bin.0));
-                        asserter.assert(id1);
-                        asserter.assert(Matcher::Unary(una.0));
-                        asserter.assert(id2);
-
-                        asserter.finish();
+                        AssertingIterator::run(
+                            &s,
+                            &[Matcher::Binary(bin.0), id1, Matcher::Unary(una.0), id2],
+                        );
                     })
             })
     }
@@ -682,149 +719,195 @@ mod test {
     #[test]
     fn test_full() {
         let text = "a + 2 * (!true && false) | (test / -+3)";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::BitwiseOr));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::ident("a"));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Mulitply));
-        asserter.assert(Matcher::Int(2));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::LogicalAnd));
-        asserter.assert(Matcher::Unary(UnaryOperatorKind::LogicalNot));
-        asserter.assert(Matcher::Bool(true));
-        asserter.assert(Matcher::Bool(false));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Divide));
-        asserter.assert(Matcher::ident("test"));
-        asserter.assert(Matcher::Unary(UnaryOperatorKind::Negate));
-        asserter.assert(Matcher::Unary(UnaryOperatorKind::Identity));
-        asserter.assert(Matcher::Int(3));
-
-        asserter.finish();
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Binary(BinaryOperatorKind::BitwiseOr),
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::ident("a"),
+                Matcher::Binary(BinaryOperatorKind::Mulitply),
+                Matcher::Int(2),
+                Matcher::Binary(BinaryOperatorKind::LogicalAnd),
+                Matcher::Unary(UnaryOperatorKind::LogicalNot),
+                Matcher::Bool(true),
+                Matcher::Bool(false),
+                Matcher::Binary(BinaryOperatorKind::Divide),
+                Matcher::ident("test"),
+                Matcher::Unary(UnaryOperatorKind::Negate),
+                Matcher::Unary(UnaryOperatorKind::Identity),
+                Matcher::Int(3),
+            ],
+        );
     }
 
     #[test]
     fn test_assignment() {
         let text = "x = 4";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::assign("x"));
-        asserter.assert(Matcher::Int(4));
+        AssertingIterator::run(text, &[Matcher::assign("x"), Matcher::Int(4)]);
     }
 
     #[test]
     fn test_let() {
         let text = "let x = 4;";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::let_decl("x"));
-        asserter.assert(Matcher::Int(4));
+        AssertingIterator::run(text, &[Matcher::let_decl("x"), Matcher::Int(4)]);
     }
 
     #[test]
     fn test_let_with_type() {
         let text = "let x: int = 4;";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::let_decl("x"));
-        asserter.assert(Matcher::type_decl("int"));
-        asserter.assert(Matcher::Int(4));
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::let_decl("x"),
+                Matcher::type_decl("int"),
+                Matcher::Int(4),
+            ],
+        );
     }
 
     #[test]
     fn test_if() {
         let text = "if (a < 2) 1 else 3 + 2";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::If);
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::LessThan));
-        asserter.assert(Matcher::ident("a"));
-        asserter.assert(Matcher::Int(2));
-        asserter.assert(Matcher::Int(1));
-        asserter.assert(Matcher::Else);
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::Int(3));
-        asserter.assert(Matcher::Int(2));
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::If,
+                Matcher::Binary(BinaryOperatorKind::LessThan),
+                Matcher::ident("a"),
+                Matcher::Int(2),
+                Matcher::Int(1),
+                Matcher::Else,
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::Int(3),
+                Matcher::Int(2),
+            ],
+        );
     }
 
     #[test]
     fn test_while() {
         let text = "while (i < 10) { i = i + 1 }";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::While);
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::LessThan));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::Int(10));
-
-        // Inside the while block
-        asserter.assert(Matcher::assign("i"));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::Int(1));
-
-        asserter.finish();
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::While,
+                Matcher::Binary(BinaryOperatorKind::LessThan),
+                Matcher::ident("i"),
+                Matcher::Int(10),
+                // Inside the while block
+                Matcher::assign("i"),
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::ident("i"),
+                Matcher::Int(1),
+            ],
+        );
     }
 
     #[test]
     fn test_func_decl() {
         let text = "fn f: int(i: int, b: bool) i + b";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::Function);
-        asserter.assert(Matcher::ident("f"));
-        asserter.assert(Matcher::type_decl("int"));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::type_decl("int"));
-        asserter.assert(Matcher::ident("b"));
-        asserter.assert(Matcher::type_decl("bool"));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::ident("b"));
-
-        asserter.finish();
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Function,
+                Matcher::ident("f"),
+                Matcher::type_decl("int"),
+                Matcher::seq(&[
+                    Matcher::ident("i"),
+                    Matcher::type_decl("int"),
+                    Matcher::ident("b"),
+                    Matcher::type_decl("bool"),
+                ]),
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::ident("i"),
+                Matcher::ident("b"),
+            ],
+        );
     }
 
     #[test]
     fn test_func_decl_block() {
         let text = "fn f: int(i: int, b: bool) {i + b; 4}";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::Function);
-        asserter.assert(Matcher::ident("f"));
-        asserter.assert(Matcher::type_decl("int"));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::type_decl("int"));
-        asserter.assert(Matcher::ident("b"));
-        asserter.assert(Matcher::type_decl("bool"));
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::ident("i"));
-        asserter.assert(Matcher::ident("b"));
-        asserter.assert(Matcher::Int(4));
-
-        asserter.finish();
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Function,
+                Matcher::ident("f"),
+                Matcher::type_decl("int"),
+                Matcher::seq(&[
+                    Matcher::ident("i"),
+                    Matcher::type_decl("int"),
+                    Matcher::ident("b"),
+                    Matcher::type_decl("bool"),
+                ]),
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::ident("i"),
+                Matcher::ident("b"),
+                Matcher::Int(4),
+            ],
+        );
     }
 
     #[test]
     fn test_return_void() {
         let text = "return;";
-        let mut asserter = AssertingIterator::new(text);
-
-        asserter.assert(Matcher::Return);
-
-        asserter.finish();
+        AssertingIterator::run(text, &[Matcher::Return]);
     }
 
     #[test]
     fn test_return_value() {
         let text = "return 4 + 3;";
-        let mut asserter = AssertingIterator::new(text);
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Return,
+                Matcher::Binary(BinaryOperatorKind::Add),
+                Matcher::Int(4),
+                Matcher::Int(3),
+            ],
+        );
+    }
 
-        asserter.assert(Matcher::Return);
-        asserter.assert(Matcher::Binary(BinaryOperatorKind::Add));
-        asserter.assert(Matcher::Int(4));
-        asserter.assert(Matcher::Int(3));
+    #[test]
+    fn test_call_expr_no_args() {
+        let text = "foo()";
+        AssertingIterator::run(
+            text,
+            &[Matcher::Call, Matcher::ident("foo"), Matcher::seq(&[])],
+        );
+    }
 
-        asserter.finish();
+    #[test]
+    fn test_call_expr_multiple_args() {
+        let text = "foo(1, 2, 3)";
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Call,
+                Matcher::ident("foo"),
+                Matcher::seq(&[Matcher::Int(1), Matcher::Int(2), Matcher::Int(3)]),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_call_expr_nested() {
+        let text = "foo(bar(1), baz(biz()))";
+        AssertingIterator::run(
+            text,
+            &[
+                Matcher::Call,
+                Matcher::ident("foo"),
+                Matcher::seq(&[
+                    Matcher::Call,
+                    Matcher::ident("bar"),
+                    Matcher::seq(&[Matcher::Int(1)]),
+                    Matcher::Call,
+                    Matcher::ident("baz"),
+                    Matcher::seq(&[Matcher::Call, Matcher::ident("biz"), Matcher::seq(&[])]),
+                ]),
+            ],
+        );
     }
 
     fn binary_operators() -> Vec<(BinaryOperatorKind, &'static str)> {
