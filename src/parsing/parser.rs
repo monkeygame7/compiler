@@ -436,7 +436,7 @@ mod test {
         ast::{
             nodes::{
                 AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, IfExpr, IntegerExpr, Stmt,
-                UnaryExpr, VariableDecl, VariableExpr, WhileStmt,
+                UnaryExpr, VariableDecl, VariableExpr, WhileStmt, Item, FunctionDecl,
             },
             AstVisitor,
         },
@@ -579,7 +579,7 @@ mod test {
     }
 
     impl AstVisitor for AssertingIterator {
-        fn visit_func_decl(&mut self, ast: &Ast, func: &crate::ast::nodes::FunctionDecl) {
+        fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl, _item: &Item) {
             self.nodes.push(Matcher::Function);
             self.nodes.push(Matcher::ident(&func.name.literal));
             if let Some(return_type) = &func.return_type {

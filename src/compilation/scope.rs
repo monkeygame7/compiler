@@ -161,7 +161,9 @@ impl Scopes {
             id: VariableId::default(),
             typ,
         };
-        self.global_scope.variables.push(symbol)
+        let id = self.global_scope.variables.push(symbol);
+        self.global_scope.variables[id].id = id;
+        id
     }
 
     fn _new_variable(
@@ -171,7 +173,6 @@ impl Scopes {
         is_mutable: bool,
     ) -> VariableId {
         let id = self.create_unscoped_variable(identifier, typ, is_mutable);
-        self.global_scope.variables[id].id = id;
 
         let destination = match self.local_scopes.last_mut() {
             Some(scope) => &mut scope.variables,

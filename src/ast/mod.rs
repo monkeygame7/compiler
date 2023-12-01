@@ -65,6 +65,10 @@ impl Ast {
         &self.items[id]
     }
 
+    pub fn query_item_mut(&mut self, id: ItemId) -> &mut Item {
+        &mut self.items[id]
+    }
+
     pub fn query_stmt(&self, id: StmtId) -> &Stmt {
         &self.statements[id]
     }
@@ -84,6 +88,35 @@ impl Ast {
     pub fn set_type(&mut self, id: ExprId, typ: Type) {
         let expr = self.query_expr_mut(id);
         expr.typ = typ;
+    }
+
+    pub fn set_function_ids(
+        &mut self,
+        func_id: FunctionId,
+        param_ids: Vec<VariableId>,
+        id: ItemId,
+    ) {
+        let item = self.query_item_mut(id);
+        match &mut item.kind {
+            ItemKind::Func(func) => {
+                assert!(func.params.items.len() == param_ids.len());
+                func.id = func_id;
+                func.params
+                    .items
+                    .iter_mut()
+                    .zip(param_ids)
+                    .for_each(|(itm, var_id)| itm.item.id = var_id)
+            }
+            _ => unreachable!("only function items can have function ids"),
+        }
+    }
+
+    pub fn set_function_id_for_expr(&mut self, func_id: FunctionId, id: ExprId) {
+        let expr = self.query_expr_mut(id);
+        match &mut expr.kind {
+            ExprKind::CallExpr(call_expr) => call_expr.callee_id = func_id,
+            _ => unreachable!("only call expressions have function ids"),
+        }
     }
 
     pub fn set_variable_for_stmt(&mut self, var: VariableId, stmt: StmtId) {

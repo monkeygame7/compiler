@@ -125,7 +125,7 @@ impl Resolver {
 }
 
 impl AstVisitorMut for Resolver {
-    fn visit_func_decl(&mut self, ast: &mut Ast, func: &FunctionDecl) {
+    fn visit_func_decl(&mut self, ast: &mut Ast, func: &FunctionDecl, item: &Item) {
         if self.scopes.lookup_function(&func.name.literal).is_some() {
             self.diagnostics.report_already_declared(&func.name);
         }
@@ -135,7 +135,7 @@ impl AstVisitorMut for Resolver {
             .as_ref()
             .map(|d| self.extract_type(d).unwrap_or(Type::Unresolved))
             .unwrap_or(Type::Void);
-        let params = func
+        let params: Vec<_> = func
             .params
             .items
             .iter()
@@ -151,7 +151,8 @@ impl AstVisitorMut for Resolver {
             .collect();
         let id = self
             .scopes
-            .declare_function(&func.name, return_type.clone(), params, func.body);
+            .declare_function(&func.name, return_type.clone(), params.clone(), func.body);
+        ast.set_function_ids(id, params, item.id);
 
         self.scopes.enter_function_scope(id);
         self.visit_expr(ast, func.body);
@@ -367,6 +368,7 @@ impl AstVisitorMut for Resolver {
     fn visit_call_expr(&mut self, ast: &mut Ast, call_expr: &CallExpr, expr: &Expr) {
         self.visit_expr(ast, call_expr.callee);
         let callee = ast.query_expr(call_expr.callee);
+        let callee_kind = &callee.kind.clone();
 
         let Type::Func(sig) = &callee.typ else {
             self.diagnostics
@@ -391,6 +393,14 @@ impl AstVisitorMut for Resolver {
                 .report_incorrect_arguments(&params, &arg_types, span);
         }
         ast.set_type(expr.id, return_type);
+
+        if let ExprKind::Variable(var_expr) = &callee_kind {
+            let fn_name = &var_expr.token.literal;
+            let func = self.scopes.lookup_function(fn_name);
+            if let Some(func) = func {
+                ast.set_function_id_for_expr(func.id, expr.id);
+            }
+        }
     }
 }
 

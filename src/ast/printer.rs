@@ -73,7 +73,7 @@ impl AstPrinter {
 }
 
 impl AstVisitor for AstPrinter {
-    fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl) {
+    fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl, _item: &Item) {
         self.append_item(format!(
             "{} {}",
             func.keyword.literal.truecolor(60, 60, 60),
