@@ -20,7 +20,8 @@ pub enum TokenKind {
     Integer(i32),
     Boolean(bool),
     Identifier,
-    Let,
+    Var,
+    Const,
     If,
     Else,
     While,
@@ -184,7 +185,8 @@ impl<'a> Lexer<'a> {
         match literal_string.as_str() {
             "true" => TokenKind::Boolean(true),
             "false" => TokenKind::Boolean(false),
-            "let" => TokenKind::Let,
+            "var" => TokenKind::Var,
+            "const" => TokenKind::Const,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
@@ -410,7 +412,8 @@ mod test {
             ("false", Boolean(false)),
             ("a", Identifier),
             ("foo_bar", Identifier),
-            ("let", Let),
+            ("var", Var),
+            ("const", Const),
             ("if", If),
             ("else", Else),
             ("while", While),
@@ -450,7 +453,9 @@ mod test {
 
     fn requires_separator(t1_kind: &TokenKind, t2_kind: &TokenKind) -> bool {
         let is_literal = |k| match k {
-            &Let | &If | &Else | &While | &Identifier | &Boolean(_) | &Fn | &Return => true,
+            &Var | &Const | &If | &Else | &While | &Identifier | &Boolean(_) | &Fn | &Return => {
+                true
+            }
             _ => false,
         };
 

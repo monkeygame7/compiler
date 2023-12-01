@@ -50,7 +50,7 @@ impl Stmt {
 pub enum StmtKind {
     Expr(ExprStmt),
     If(ExprId),
-    Let(LetStmt),
+    Decl(VariableDecl),
     While(WhileStmt),
     Return(ReturnStmt),
 }
@@ -62,8 +62,9 @@ pub struct ExprStmt {
 }
 
 #[derive(Debug, Clone)]
-pub struct LetStmt {
+pub struct VariableDecl {
     pub keyword: SyntaxToken,
+    pub is_mutable: bool,
     pub identifier: SyntaxToken,
     pub variable: VariableId,
     pub type_decl: Option<TypeDecl>,

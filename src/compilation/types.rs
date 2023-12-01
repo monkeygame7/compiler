@@ -166,23 +166,23 @@ impl AstVisitorMut for Resolver {
         }
     }
 
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt) {
-        self.visit_expr(ast, let_stmt.initial);
-        let initial_expr = ast.query_expr(let_stmt.initial);
+    fn visit_variable_decl(&mut self, ast: &mut Ast, variable_decl: &VariableDecl, stmt: &Stmt) {
+        self.visit_expr(ast, variable_decl.initial);
+        let initial_expr = ast.query_expr(variable_decl.initial);
 
-        let typ = let_stmt
+        let typ = variable_decl
             .type_decl
             .as_ref()
             .and_then(|d| self.extract_type(d))
             .map(|typ| self.expect_type(&typ, &initial_expr.typ, initial_expr.span))
             .unwrap_or_else(|| initial_expr.typ.clone());
 
-        let var = self.scopes.declare_variable(&let_stmt.identifier, typ);
+        let var = self.scopes.declare_variable(&variable_decl.identifier, typ);
         match var {
             Some(var) => ast.set_variable_for_stmt(var, stmt.id),
             None => self
                 .diagnostics
-                .report_already_declared(&let_stmt.identifier),
+                .report_already_declared(&variable_decl.identifier),
         }
     }
 
@@ -209,7 +209,9 @@ impl AstVisitorMut for Resolver {
                 Some(id) => ast.query_expr(id).span,
                 None => stmt.span,
             };
-            let StmtKind::Return(ret_stmt_mut) = &mut ast.query_stmt_mut(stmt.id).kind  else {panic!()};
+            let StmtKind::Return(ret_stmt_mut) = &mut ast.query_stmt_mut(stmt.id).kind else {
+                panic!()
+            };
             ret_stmt_mut.typ = self.expect_type(&func_type, &return_type, span);
         } else {
             self.diagnostics
@@ -358,10 +360,10 @@ impl AstVisitorMut for Resolver {
         let callee = ast.query_expr(call_expr.callee);
 
         let Type::Func(sig) = &callee.typ else {
-                self.diagnostics
-                    .report_not_callable(&callee.typ, callee.span);
-                return;
-            };
+            self.diagnostics
+                .report_not_callable(&callee.typ, callee.span);
+            return;
+        };
 
         let params = sig.params.clone();
         let return_type = sig.return_type.clone();

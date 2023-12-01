@@ -125,14 +125,19 @@ impl AstVisitor for AstPrinter {
         }
     }
 
-    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &super::LetStmt, _stmt: &super::Stmt) {
-        self.append_keyword(&let_stmt.keyword);
+    fn visit_variable_decl(
+        &mut self,
+        ast: &Ast,
+        variable_decl: &super::VariableDecl,
+        _stmt: &super::Stmt,
+    ) {
+        self.append_keyword(&variable_decl.keyword);
 
         nested(self, |printer| {
             printer.is_last = false;
-            printer.append_item(&let_stmt.identifier.literal.green());
+            printer.append_item(&variable_decl.identifier.literal.green());
             printer.is_last = true;
-            printer.visit_expr(ast, let_stmt.initial);
+            printer.visit_expr(ast, variable_decl.initial);
         });
     }
 

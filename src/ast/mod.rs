@@ -89,7 +89,7 @@ impl Ast {
     pub fn set_variable_for_stmt(&mut self, var: VariableId, stmt: StmtId) {
         let stmt = self.query_stmt_mut(stmt);
         match &mut stmt.kind {
-            StmtKind::Let(let_stmt) => let_stmt.variable = var,
+            StmtKind::Decl(variable_decl) => variable_decl.variable = var,
             _ => unreachable!("only let statments have variables"),
         }
     }
@@ -163,9 +163,10 @@ impl Ast {
         self.create_stmt(StmtKind::If(if_expr), span)
     }
 
-    pub fn create_let_stmt(
+    pub fn create_variable_decl(
         &mut self,
         keyword: SyntaxToken,
+        is_mutable: bool,
         identifier: SyntaxToken,
         type_decl: Option<TypeDecl>,
         equals_token: SyntaxToken,
@@ -175,8 +176,9 @@ impl Ast {
         let expr_span = self.query_expr(expr).span;
         let span = keyword.span.to(expr_span);
         self.create_stmt(
-            StmtKind::Let(LetStmt {
+            StmtKind::Decl(VariableDecl {
                 keyword,
+                is_mutable,
                 identifier,
                 variable: VariableId::default(),
                 type_decl,

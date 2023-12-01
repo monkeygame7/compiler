@@ -163,7 +163,7 @@ impl<'a> Parser<'a> {
     fn parse_stmt(&mut self) -> StmtId {
         let id = match self.current().kind {
             TokenKind::If => self.parse_if_stmt(),
-            TokenKind::Let => self.parse_let_stmt(),
+            TokenKind::Var | TokenKind::Const => self.parse_variable_decl(),
             TokenKind::While => self.parse_while_stmt(),
             TokenKind::Return => self.parse_return_stmt(),
             _ => self.parse_expr_stmt(),
@@ -187,8 +187,13 @@ impl<'a> Parser<'a> {
         self.ast.create_if_stmt(if_expr)
     }
 
-    fn parse_let_stmt(&mut self) -> StmtId {
-        let keyword = self.expect(TokenKind::Let);
+    fn parse_variable_decl(&mut self) -> StmtId {
+        let keyword = match &self.current().kind {
+            TokenKind::Var => self.expect(TokenKind::Var),
+            TokenKind::Const => self.expect(TokenKind::Const),
+            kind => panic!("{:?} is not a valid variable declaration", kind),
+        };
+        let is_mutable = matches!(keyword.kind, TokenKind::Var);
         let identifier = self.expect(TokenKind::Identifier);
         let type_decl = self.parse_optional_type_decl();
         let equals_token = self.expect(TokenKind::Equals);
@@ -199,8 +204,9 @@ impl<'a> Parser<'a> {
             Err(s) => s,
         };
 
-        self.ast.create_let_stmt(
+        self.ast.create_variable_decl(
             keyword,
+            is_mutable,
             identifier,
             type_decl,
             equals_token,
@@ -429,8 +435,8 @@ mod test {
     use crate::{
         ast::{
             nodes::{
-                AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, IfExpr, IntegerExpr, LetStmt,
-                Stmt, UnaryExpr, VariableExpr, WhileStmt,
+                AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, IfExpr, IntegerExpr, Stmt,
+                UnaryExpr, VariableDecl, VariableExpr, WhileStmt,
             },
             AstVisitor,
         },
@@ -584,13 +590,13 @@ mod test {
             self.visit_expr(ast, func.body);
         }
 
-        fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
+        fn visit_variable_decl(&mut self, ast: &Ast, variable_decl: &VariableDecl, _stmt: &Stmt) {
             self.nodes
-                .push(Matcher::let_decl(&let_stmt.identifier.literal));
-            if let Some(typ) = &let_stmt.type_decl {
+                .push(Matcher::let_decl(&variable_decl.identifier.literal));
+            if let Some(typ) = &variable_decl.type_decl {
                 self.nodes.push(Matcher::type_decl(&typ.typ.literal))
             }
-            self.visit_expr(ast, let_stmt.initial);
+            self.visit_expr(ast, variable_decl.initial);
         }
 
         fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {

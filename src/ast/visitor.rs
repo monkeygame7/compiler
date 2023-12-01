@@ -22,7 +22,7 @@ pub trait AstVisitor {
         match &stmt.kind {
             StmtKind::Expr(expr_stmt) => self.visit_expr_stmt(ast, expr_stmt, &stmt),
             StmtKind::If(if_expr) => self.visit_if_stmt(ast, *if_expr, &stmt),
-            StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
+            StmtKind::Decl(variable_decl) => self.visit_variable_decl(ast, variable_decl, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
             StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
@@ -36,7 +36,7 @@ pub trait AstVisitor {
         self.visit_expr(ast, if_expr);
     }
 
-    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, stmt: &Stmt);
+    fn visit_variable_decl(&mut self, ast: &Ast, variable_decl: &VariableDecl, stmt: &Stmt);
 
     fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, stmt: &Stmt);
 
@@ -118,7 +118,7 @@ pub trait AstVisitorMut {
         match &stmt.kind {
             StmtKind::Expr(expr_stmt) => self.visit_expr_stmt(ast, expr_stmt, &stmt),
             StmtKind::If(if_expr) => self.visit_if_stmt(ast, *if_expr, &stmt),
-            StmtKind::Let(let_stmt) => self.visit_let_stmt(ast, let_stmt, &stmt),
+            StmtKind::Decl(variable_decl) => self.visit_variable_decl(ast, variable_decl, &stmt),
             StmtKind::While(while_stmt) => self.visit_while_stmt(ast, while_stmt, &stmt),
             StmtKind::Return(return_stmt) => self.visit_return_stmt(ast, return_stmt, &stmt),
         }
@@ -132,7 +132,7 @@ pub trait AstVisitorMut {
         self.visit_expr(ast, if_expr);
     }
 
-    fn visit_let_stmt(&mut self, ast: &mut Ast, let_stmt: &LetStmt, stmt: &Stmt);
+    fn visit_variable_decl(&mut self, ast: &mut Ast, variable_decl: &VariableDecl, stmt: &Stmt);
 
     fn visit_while_stmt(&mut self, ast: &mut Ast, while_stmt: &WhileStmt, stmt: &Stmt);
 

@@ -24,7 +24,9 @@ pub enum ResultType {
 
 impl ResultType {
     fn to_bool(self) -> bool {
-        let Boolean(b) = self else { panic!("expected bool") };
+        let Boolean(b) = self else {
+            panic!("expected bool")
+        };
         b
     }
 }
@@ -49,13 +51,13 @@ impl AstVisitor for Evaluator {
         }
     }
 
-    fn visit_let_stmt(&mut self, ast: &Ast, let_stmt: &LetStmt, _stmt: &Stmt) {
-        self.visit_expr(ast, let_stmt.initial);
+    fn visit_variable_decl(&mut self, ast: &Ast, variable_decl: &VariableDecl, _stmt: &Stmt) {
+        self.visit_expr(ast, variable_decl.initial);
         let value = self.last_result.take().unwrap();
 
         let last_scope = self.scopes.last_mut().unwrap();
-        assert!(!&last_scope.contains_key(&let_stmt.variable));
-        last_scope.insert(let_stmt.variable, value);
+        assert!(!&last_scope.contains_key(&variable_decl.variable));
+        last_scope.insert(variable_decl.variable, value);
         self.last_result = Some(Void);
     }
 
