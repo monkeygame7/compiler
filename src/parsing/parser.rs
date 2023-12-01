@@ -453,7 +453,8 @@ mod test {
         Ident(String),
         Binary(BinaryOperatorKind),
         Unary(UnaryOperatorKind),
-        LetDecl(String),
+        VarDecl(String),
+        ConstDecl(String),
         Assign(String),
         TypeDecl(String),
         If,
@@ -470,8 +471,12 @@ mod test {
             Matcher::Ident(s.to_string())
         }
 
-        fn let_decl(s: &str) -> Self {
-            Matcher::LetDecl(s.to_string())
+        fn var_decl(s: &str) -> Self {
+            Matcher::VarDecl(s.to_string())
+        }
+
+        fn const_decl(s: &str) -> Self {
+            Matcher::ConstDecl(s.to_string())
         }
 
         fn assign(s: &str) -> Self {
@@ -591,8 +596,13 @@ mod test {
         }
 
         fn visit_variable_decl(&mut self, ast: &Ast, variable_decl: &VariableDecl, _stmt: &Stmt) {
-            self.nodes
-                .push(Matcher::let_decl(&variable_decl.identifier.literal));
+            let ident = &variable_decl.identifier.literal;
+            let matcher = if variable_decl.is_mutable {
+                Matcher::var_decl(ident)
+            } else {
+                Matcher::const_decl(ident)
+            };
+            self.nodes.push(matcher);
             if let Some(typ) = &variable_decl.type_decl {
                 self.nodes.push(Matcher::type_decl(&typ.typ.literal))
             }
@@ -753,18 +763,24 @@ mod test {
     }
 
     #[test]
-    fn test_let() {
-        let text = "let x = 4;";
-        AssertingIterator::run(text, &[Matcher::let_decl("x"), Matcher::Int(4)]);
+    fn test_var() {
+        let text = "var x = 4;";
+        AssertingIterator::run(text, &[Matcher::var_decl("x"), Matcher::Int(4)]);
+    }
+
+    #[test]
+    fn test_const() {
+        let text = "const x = 4;";
+        AssertingIterator::run(text, &[Matcher::const_decl("x"), Matcher::Int(4)]);
     }
 
     #[test]
     fn test_let_with_type() {
-        let text = "let x: int = 4;";
+        let text = "const x: int = 4;";
         AssertingIterator::run(
             text,
             &[
-                Matcher::let_decl("x"),
+                Matcher::const_decl("x"),
                 Matcher::type_decl("int"),
                 Matcher::Int(4),
             ],

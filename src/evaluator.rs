@@ -318,9 +318,9 @@ mod test {
     #[test]
     fn test_multiline() {
         let input = r#"
-            let x = 5;
-            let y = 10;
-            let z = x + y;
+            var x = 5;
+            var y = 10;
+            var z = x + y;
             x = x * 2;
             y = x + y;
             y + z
@@ -345,34 +345,34 @@ mod test {
             ("123 | -1", -1),
             ("0 + {if true 1 else 2}", 1),
             (
-                "let x = 4;
+                "var x = 4;
                  x = x = x + 5",
                 9,
             ),
             (
-                "let x = 4;
+                "var x = 4;
                  x = x + 5",
                 9,
             ),
             (
-                "let x = 4;
+                "const x = 4;
                 {
-                    let y = x;
-                    let x = 2;
+                    const y = x;
+                    const x = 2;
                     y + x
                 }",
                 6,
             ),
             (
-                "let x = 4;
+                "const x = 4;
                 {x + 2}",
                 6,
             ),
             (
                 "
-                let x = 4 + {
-                let x = 2 - {
-                    let y = 10;
+                const x = 4 + {
+                const x = 2 - {
+                    const y = 10;
                     y + 100
                 };
                 x
@@ -382,18 +382,18 @@ mod test {
             ),
             (
                 "
-                 let x = 4;
+                 const x = 4;
                  x + {
-                     let y = 3;
+                     const y = 3;
                      x + y
                  }",
                 11,
             ),
             (
                 "
-                let x: int = 1;
-                let y: int = 2;
-                let z = 3;
+                const x: int = 1;
+                const y: int = 2;
+                var z = 3;
                 if x > y {
                     z = -100
                 } else {
@@ -410,8 +410,8 @@ mod test {
             ),
             (
                 "
-                let x = 0;
-                let result = 0;
+                var x = 0;
+                var result = 0;
                 while x < 100 {
                   if x < 20 {
                     result = result + x
@@ -428,8 +428,8 @@ mod test {
             ),
             (
                 "
-                let x = 5;
-                fn foo: int(x: int) x = 3
+                const x = 5;
+                fn foo: int(x: int) {var x = 0; x = 3}
                 x",
                 5,
             ),
@@ -459,14 +459,14 @@ mod test {
         let void_cases = vec![
             "",
             "{1;2;}",
-            "let x = 4;",
+            "const x = 4;",
             "fn foo() {}",
             "fn foo: int() 1",
-            "fn foo() {true; let x = 1;}",
+            "fn foo() {true; var x = 1;}",
             "fn foo: int(x: int, y: bool) x",
-            "let x = true;
+            "var x = true;
              fn foo: int(x: int, y: bool) x",
-            "let x = 4;
+            "const x = 4;
              fn foo: int() x",
             "fn foo: int() {
                 true;
@@ -480,7 +480,7 @@ mod test {
             }",
             "fn foo() {foo()}",
             "fn foo() {
-                let y = foo;
+                var y = foo;
                 y();
             }",
             "fn foo: int() {
@@ -505,43 +505,44 @@ mod test {
             "1 + [let] [x] = 4",
             "true [&] false",
             "true [|] false",
-            "let x = 4 + {
-                let x = 2 - {
-                    let y = {
+            "const x = 4 + {
+                const x = 2 - {
+                    const y = {
                         [x] + 10
                     };
                     y + 100
                 };
                 x
             };",
-            "let x = {
-                let y = 4;
+            "const x = {
+                const y = 4;
             };
             x [+] 5",
             "4 [+] {
-                let x = 4;
+                var x = 4;
             }",
             "{
-                let x = 4;
+                var x = 4;
                 x = [{
                     4 < 3
                 }]
             }",
             "{
-                let x = 4;
+                const x = 4;
             }
             [x]",
             "if [100] true else false",
-            "if true [let] [x] = 4",
+            "if true [var] [x] = 4",
             "while [1] {}",
             "if true 1 else [false]",
-            "let[[[[]]]]",
-            "let x: int = [true];",
-            "let x: int = [true];
+            "var[[[[]]]]",
+            "const[[[[]]]]",
+            "const x: int = [true];",
+            "var x: int = [true];
              x + 4",
-            "let x: bool = [5];
+            "const x: bool = [5];
              x [+] 4",
-            "let x: [foo] = 5;",
+            "var x: [foo] = 5;",
             "fn test: [foo]() {1}",
             "fn test: int() [{true}]",
             "fn test: int(x: [foo]) {x}",
@@ -553,21 +554,21 @@ mod test {
             "fn foo[[[]]]",
             "fn foo([[]]",
             "fn foo()[]",
-            "let x = 4;
+            "const x = 4;
              fn foo: int(x: bool) [x]",
             "fn foo: int() 1
-             let x: int = [foo];",
+             const x: int = [foo];",
             "fn foo: int(x: int) x [x]",
             "{[1] 2}",
             "[return][]",
             "[return];",
             "[return] 1;",
             "[return] 1[]",
-            "let x = 4[]",
+            "var x = 4[]",
             "fn foo: int() [{1;}]",
             "fn foo: int() 1[;]",
             "fn foo: int() {return 1[}]",
-            "fn foo() {let x = 4[}]",
+            "fn foo() {var x = 4[}]",
             "fn foo(x: int [y]: int [z]: int) {}",
             "fn foo(x: int, y: int) {
                 foo[(true, false)]
@@ -586,9 +587,9 @@ mod test {
             "fn foo: int() {
                 return 1;
              }
-             let x: bool = [foo()];",
-            "let x: int = [if true {1}];",
-            "let x = if true{1};
+             const x: bool = [foo()];",
+            "const x: int = [if true {1}];",
+            "const x = if true{1};
              x [+] 1",
             "fn foo: int() {return [false];}",
             "fn foo: int() {
@@ -597,6 +598,12 @@ mod test {
                 }
                 2
             }",
+            "fn foo() {} foo [=] 1",
+            "fn foo(x: int) {x [=] 1;}",
+            "const x = 1;
+             x [=] 2;",
+            "fn foo() {}
+             foo [=] 1;"
         ];
 
         int_cases

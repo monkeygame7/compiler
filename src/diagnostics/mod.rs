@@ -137,6 +137,10 @@ impl DiagnosticBag {
             span,
         );
     }
+
+    pub fn report_immutable(&self, identifier: &str, span: TextSpan) {
+        self.add_message(format!("{identifier} cannot be modified"), span);
+    }
 }
 
 impl IntoIterator for DiagnosticBag {

@@ -144,7 +144,9 @@ impl AstVisitorMut for Resolver {
                 let typ = self
                     .extract_type(&param.type_decl)
                     .unwrap_or(Type::Unresolved);
-                self.scopes.create_unscoped_variable(&param.token, typ)
+                // function params are immutable (at least currently)
+                self.scopes
+                    .create_unscoped_variable(&param.token, typ, false)
             })
             .collect();
         let id = self
@@ -177,7 +179,9 @@ impl AstVisitorMut for Resolver {
             .map(|typ| self.expect_type(&typ, &initial_expr.typ, initial_expr.span))
             .unwrap_or_else(|| initial_expr.typ.clone());
 
-        let var = self.scopes.declare_variable(&variable_decl.identifier, typ);
+        let var =
+            self.scopes
+                .declare_variable(&variable_decl.identifier, typ, variable_decl.is_mutable);
         match var {
             Some(var) => ast.set_variable_for_stmt(var, stmt.id),
             None => self
@@ -236,11 +240,16 @@ impl AstVisitorMut for Resolver {
         let var = self.scopes.lookup_variable(&assign_expr.identifier.literal);
 
         let typ = match var {
-            Some(var) => {
+            Some(var) if var.is_mutable => {
                 let rhs_expr = ast.query_expr(assign_expr.rhs);
                 let typ = self.expect_type(&var.typ, &rhs_expr.typ, rhs_expr.span);
                 ast.set_variable_for_expr(var.id, expr.id);
                 typ
+            }
+            Some(var) => {
+                self.diagnostics
+                    .report_immutable(&var.identifier, assign_expr.equals.span);
+                var.typ.clone()
             }
             None => {
                 self.diagnostics

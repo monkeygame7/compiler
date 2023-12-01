@@ -23,6 +23,7 @@ pub struct Function {
 #[derive(Debug)]
 pub struct VariableSymbol {
     pub id: VariableId,
+    pub is_mutable: bool,
     pub typ: Type,
     pub identifier: String,
 }
@@ -97,7 +98,8 @@ impl Scopes {
             return_type,
             params: params_sig.into(),
         };
-        let var = self._new_variable(identifier, Type::func(&sig));
+        // Functions are immutable
+        let var = self._new_variable(identifier, Type::func(&sig), false);
         let func = Function {
             id: FunctionId::default(),
             name: name.to_owned(),
@@ -126,7 +128,12 @@ impl Scopes {
             .nth(0)
     }
 
-    pub fn declare_variable(&mut self, identifier: &SyntaxToken, typ: Type) -> Option<VariableId> {
+    pub fn declare_variable(
+        &mut self,
+        identifier: &SyntaxToken,
+        typ: Type,
+        is_mutable: bool,
+    ) -> Option<VariableId> {
         let exists = self
             .local_scopes
             .last()
@@ -138,21 +145,32 @@ impl Scopes {
         if exists {
             None
         } else {
-            Some(self._new_variable(&identifier, typ))
+            Some(self._new_variable(&identifier, typ, is_mutable))
         }
     }
 
-    pub fn create_unscoped_variable(&mut self, identifier: &SyntaxToken, typ: Type) -> VariableId {
+    pub fn create_unscoped_variable(
+        &mut self,
+        identifier: &SyntaxToken,
+        typ: Type,
+        is_mutable: bool,
+    ) -> VariableId {
         let symbol = VariableSymbol {
             identifier: identifier.to_string(),
+            is_mutable,
             id: VariableId::default(),
             typ,
         };
         self.global_scope.variables.push(symbol)
     }
 
-    fn _new_variable(&mut self, identifier: &SyntaxToken, typ: Type) -> VariableId {
-        let id = self.create_unscoped_variable(identifier, typ);
+    fn _new_variable(
+        &mut self,
+        identifier: &SyntaxToken,
+        typ: Type,
+        is_mutable: bool,
+    ) -> VariableId {
+        let id = self.create_unscoped_variable(identifier, typ, is_mutable);
         self.global_scope.variables[id].id = id;
 
         let destination = match self.local_scopes.last_mut() {
