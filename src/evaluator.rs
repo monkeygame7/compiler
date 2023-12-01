@@ -4,14 +4,23 @@ use std::{
 };
 
 use crate::{
-    ast::{nodes::*, Ast, AstVisitor},
-    compilation::VariableId,
+    ast::{nodes::*, Ast, AstVisitor, ExprId},
+    compilation::{FunctionId, VariableId},
     diagnostics::TextSpan,
 };
 
 pub struct Evaluator {
+    functions: HashMap<FunctionId, FunctionDef>,
     scopes: Vec<HashMap<VariableId, ResultType>>,
     last_result: Option<ResultType>,
+    main_body: Option<ExprId>,
+}
+
+#[derive(Debug)]
+struct FunctionDef {
+    name: String,
+    entry: ExprId,
+    params: Vec<VariableId>,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy)]
@@ -40,8 +49,15 @@ impl Display for ResultType {
 use ResultType::*;
 
 impl AstVisitor for Evaluator {
-    fn visit_func_decl(&mut self, _ast: &Ast, _func: &FunctionDecl) {
-        // Do nothing
+    fn visit_func_decl(&mut self, _ast: &Ast, func: &FunctionDecl, _item: &Item) {
+        let params = func.params.items.iter().map(|i| i.item.id).collect();
+        let entry = func.body;
+        let name = func.name.literal.clone();
+        self.functions
+            .insert(func.id, FunctionDef { name, entry, params });
+        if func.name.literal == "main" {
+            self.main_body = Some(entry);
+        }
     }
 
     fn visit_expr_stmt(&mut self, ast: &Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
@@ -169,9 +185,9 @@ impl AstVisitor for Evaluator {
     }
 
     fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, expr: &Expr) {
-        self.scopes.push(HashMap::new());
+        self.enter_scope();
         self.do_visit_block_expr(ast, block_expr, expr);
-        self.scopes.pop().expect("Unexpected empty scopes");
+        self.exit_scope();
     }
 
     fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
@@ -199,23 +215,68 @@ impl AstVisitor for Evaluator {
         }
     }
 
-    fn visit_call_expr(&mut self, _ast: &Ast, _call_expr: &CallExpr, _expr: &Expr) {
-        todo!("call expr")
+    fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, _expr: &Expr) {
+        self.enter_scope();
+
+        let func = self.functions.get(&call_expr.callee_id).unwrap();
+        let entry = func.entry;
+        assert!(
+            func.params.len() == call_expr.args.items.len(),
+            "{}({:?}) != {:?}",
+            func.name,
+            func.params,
+            call_expr.args.items
+        );
+        call_expr
+            .args
+            .items
+            .iter()
+            .map(|i| i.item)
+            .zip(func.params.clone())
+            .for_each(|(arg, param)| {
+                self.visit_expr(ast, arg);
+                let value = self.last_result.take().unwrap();
+                self.scopes
+                    .last_mut()
+                    .unwrap()
+                    .insert(param, value);
+            });
+
+        self.visit_expr(ast, entry);
+
+        self.exit_scope();
     }
 }
 
 impl Evaluator {
     fn new() -> Evaluator {
         Evaluator {
-            scopes: vec![HashMap::new()],
+            functions: HashMap::new(),
+            scopes: vec![],
             last_result: None,
+            main_body: None,
         }
     }
 
     pub fn evaluate(ast: &Ast) -> ResultType {
         let mut evaluator = Self::new();
         ast.visit(&mut evaluator);
+        evaluator.call_main(ast);
         evaluator.last_result.take().unwrap_or(Void)
+    }
+
+    fn call_main(&mut self, ast: &Ast) {
+        self.enter_scope();
+        self.visit_expr(ast, self.main_body.expect("No main function found"));
+        self.exit_scope();
+    }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop().expect("Unexpected empty scopes");
     }
 }
 
@@ -603,7 +664,7 @@ mod test {
             "const x = 1;
              x [=] 2;",
             "fn foo() {}
-             foo [=] 1;"
+             foo [=] 1;",
         ];
 
         int_cases
