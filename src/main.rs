@@ -3,6 +3,7 @@ mod ast;
 mod compilation;
 mod diagnostics;
 mod evaluator;
+mod lowering;
 mod parsing;
 
 use colored::Colorize;

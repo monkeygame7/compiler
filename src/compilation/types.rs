@@ -23,7 +23,7 @@ impl Type {
 }
 
 #[derive(PartialEq, Debug, Clone, Eq)]
-pub struct Types(Vec<Type>);
+pub struct Types(pub Vec<Type>);
 
 impl From<Vec<Type>> for Types {
     fn from(value: Vec<Type>) -> Self {
@@ -149,9 +149,12 @@ impl AstVisitorMut for Resolver {
                     .create_unscoped_variable(&param.token, typ, false)
             })
             .collect();
-        let id = self
-            .scopes
-            .declare_function(&func.name, return_type.clone(), params.clone(), func.body);
+        let id = self.scopes.declare_function(
+            &func.name,
+            return_type.clone(),
+            params.clone(),
+            func.body,
+        );
         ast.set_function_ids(id, params, item.id);
 
         self.scopes.enter_function_scope(id);

@@ -53,8 +53,14 @@ impl AstVisitor for Evaluator {
         let params = func.params.items.iter().map(|i| i.item.id).collect();
         let entry = func.body;
         let name = func.name.literal.clone();
-        self.functions
-            .insert(func.id, FunctionDef { name, entry, params });
+        self.functions.insert(
+            func.id,
+            FunctionDef {
+                name,
+                entry,
+                params,
+            },
+        );
         if func.name.literal == "main" {
             self.main_body = Some(entry);
         }
@@ -236,10 +242,7 @@ impl AstVisitor for Evaluator {
             .for_each(|(arg, param)| {
                 self.visit_expr(ast, arg);
                 let value = self.last_result.take().unwrap();
-                self.scopes
-                    .last_mut()
-                    .unwrap()
-                    .insert(param, value);
+                self.scopes.last_mut().unwrap().insert(param, value);
             });
 
         self.visit_expr(ast, entry);

@@ -1,5 +1,6 @@
 mod scope;
 mod types;
+pub use scope::Function;
 pub use scope::FunctionId;
 pub use scope::VariableId;
 pub use types::Signature;
@@ -20,7 +21,7 @@ pub struct CompilationUnit {
     pub src: SourceText,
     pub ast: Ast,
     pub diagnostics: Rc<DiagnosticBag>,
-    _scope: GlobalScope,
+    pub scope: GlobalScope,
 }
 
 impl CompilationUnit {
@@ -45,7 +46,7 @@ impl CompilationUnit {
                 src,
                 ast,
                 diagnostics,
-                _scope: resolver.scopes.global_scope,
+                scope: resolver.scopes.global_scope,
             })
         }
     }

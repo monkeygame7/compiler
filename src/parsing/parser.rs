@@ -435,8 +435,8 @@ mod test {
     use crate::{
         ast::{
             nodes::{
-                AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, IfExpr, IntegerExpr, Stmt,
-                UnaryExpr, VariableDecl, VariableExpr, WhileStmt, Item, FunctionDecl,
+                AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, FunctionDecl, IfExpr,
+                IntegerExpr, Item, Stmt, UnaryExpr, VariableDecl, VariableExpr, WhileStmt,
             },
             AstVisitor,
         },
