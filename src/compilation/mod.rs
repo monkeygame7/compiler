@@ -2,6 +2,7 @@ mod scope;
 mod types;
 pub use scope::Function;
 pub use scope::FunctionId;
+pub use scope::GlobalScope;
 pub use scope::VariableId;
 pub use types::Signature;
 pub use types::Type;
@@ -15,7 +16,7 @@ use crate::{
     parsing::{Lexer, Parser},
 };
 
-use self::{scope::GlobalScope, types::Resolver};
+use self::types::Resolver;
 
 pub struct CompilationUnit {
     pub src: SourceText,
