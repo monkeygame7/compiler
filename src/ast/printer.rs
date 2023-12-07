@@ -90,17 +90,17 @@ impl AstVisitor for AstPrinter {
                     .unwrap_or("void")
                     .yellow()
             ));
-            if func.params.items.len() > 0 {
+            if func.params.len() > 0 {
                 printer.append_structural("params");
                 nested(printer, |printer| {
                     printer.is_last = false;
                     nested(printer, |printer| {
-                        for (i, param) in func.params.items.iter().enumerate() {
-                            printer.is_last = i == func.params.items.len() - 1;
+                        for (i, param) in func.params.iter_items().enumerate() {
+                            printer.is_last = i == func.params.len() - 1;
                             printer.append_item(format!(
                                 "{} ({})",
-                                param.item.token.literal.green(),
-                                param.item.type_decl.typ.literal.yellow()
+                                param.token.literal.green(),
+                                param.type_decl.typ.literal.yellow()
                             ))
                         }
                     });
@@ -259,7 +259,7 @@ impl AstVisitor for AstPrinter {
         self.append_structural("call");
 
         nested(self, |p| {
-            p.is_last = call_expr.args.items.is_empty();
+            p.is_last = call_expr.args.is_empty();
             p.append_structural("target");
             nested(p, |p| {
                 p.is_last = true;
@@ -270,11 +270,11 @@ impl AstVisitor for AstPrinter {
                 p.append_structural("args");
                 nested(p, |p| {
                     p.is_last = false;
-                    for arg in &call_expr.args.items {
-                        if arg.item == call_expr.args.items.last().unwrap().item {
+                    for arg in call_expr.args.iter_items() {
+                        if arg == call_expr.args.last_item().unwrap() {
                             p.is_last = true;
                         }
-                        p.visit_expr(ast, arg.item);
+                        p.visit_expr(ast, *arg);
                     }
                 });
             }

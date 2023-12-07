@@ -50,7 +50,7 @@ use ResultType::*;
 
 impl AstVisitor for Evaluator {
     fn visit_func_decl(&mut self, _ast: &Ast, func: &FunctionDecl, _item: &Item) {
-        let params = func.params.items.iter().map(|i| i.item.id).collect();
+        let params = func.params.iter_items().map(|item| item.id).collect();
         let entry = func.body;
         let name = func.name.literal.clone();
         self.functions.insert(
@@ -227,20 +227,18 @@ impl AstVisitor for Evaluator {
         let func = self.functions.get(&call_expr.callee_id).unwrap();
         let entry = func.entry;
         assert!(
-            func.params.len() == call_expr.args.items.len(),
+            func.params.len() == call_expr.args.len(),
             "{}({:?}) != {:?}",
             func.name,
             func.params,
-            call_expr.args.items
+            call_expr.args
         );
         call_expr
             .args
-            .items
-            .iter()
-            .map(|i| i.item)
+            .iter_items()
             .zip(func.params.clone())
             .for_each(|(arg, param)| {
-                self.visit_expr(ast, arg);
+                self.visit_expr(ast, *arg);
                 let value = self.last_result.take().unwrap();
                 self.scopes.last_mut().unwrap().insert(param, value);
             });

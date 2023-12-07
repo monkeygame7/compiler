@@ -587,9 +587,9 @@ mod test {
                     .push(Matcher::type_decl(&return_type.typ.literal))
             }
             let mut params = vec![];
-            for param in &func.params.items {
-                params.push(Matcher::ident(&param.item.token.literal));
-                params.push(Matcher::type_decl(&param.item.type_decl.typ.literal));
+            for param in func.params.iter_items() {
+                params.push(Matcher::ident(&param.token.literal));
+                params.push(Matcher::type_decl(&param.type_decl.typ.literal));
             }
             self.nodes.push(Matcher::seq(&params));
             self.visit_expr(ast, func.body);
@@ -675,8 +675,8 @@ mod test {
             self.nodes.push(Matcher::Call);
             self.visit_expr(ast, call_expr.callee);
             let start_idx = self.nodes.len();
-            for arg in &call_expr.args.items {
-                self.visit_expr(ast, arg.item);
+            for arg in call_expr.args.iter_items() {
+                self.visit_expr(ast, *arg);
             }
             let mut args = vec![];
             while self.nodes.len() > start_idx {

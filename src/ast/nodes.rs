@@ -325,7 +325,7 @@ pub struct DelimitedItem<T> {
 
 #[derive(Debug, Clone)]
 pub struct DelimitedSequence<T> {
-    pub items: Vec<DelimitedItem<T>>,
+    items: Vec<DelimitedItem<T>>,
 }
 
 impl<T> DelimitedSequence<T> {
@@ -335,6 +335,26 @@ impl<T> DelimitedSequence<T> {
 
     pub fn push(&mut self, item: T, comma: Option<SyntaxToken>) {
         self.items.push(DelimitedItem { item, delim: comma })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn last_item(&self) -> Option<&T> {
+        self.items.last().map(|i| &i.item)
+    }
+
+    pub fn iter_items(&self) -> impl Iterator<Item = &T> {
+        self.items.iter().map(|i| &i.item)
+    }
+
+    pub fn iter_items_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.items.iter_mut().map(|i| &mut i.item)
     }
 }
 

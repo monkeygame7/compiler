@@ -6,10 +6,10 @@ use inkwell::{
     context::Context,
     module::Module,
     passes::PassManager,
-    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
+    types::{BasicMetadataTypeEnum, BasicTypeEnum},
     values::{
         AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode,
-        IntValue, PointerValue,
+        PointerValue,
     },
     IntPredicate,
 };
@@ -18,7 +18,6 @@ use crate::{
     ast::{nodes::*, Ast, AstVisitor},
     compilation::{CompilationUnit, Function, Type, VariableId},
     diagnostics::TextSpan,
-    parsing::SyntaxToken,
 };
 
 struct FunctionContext<'ctx> {
@@ -273,6 +272,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         let current_block = llvm_func.get_last_basic_block().unwrap();
         return_label.move_after(current_block).unwrap();
 
+        self.current_function.take();
         if llvm_func.verify(true) {
             // do something?
         } else {
@@ -305,6 +305,8 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         let loop_block = self.append_block("loop");
         let end_block = self.append_block("loop_end");
 
+        // should this use the try method? i can't imagine a scenario where there would be a break
+        // immediately before a while and it being valid code
         self.builder.build_unconditional_branch(cond_block).unwrap();
 
         self.builder.position_at_end(cond_block);
@@ -336,7 +338,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
     }
 
     fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
-        todo!()
+        unreachable!("cannot compile error node")
     }
 
     fn visit_integer_expr(&mut self, _ast: &Ast, int_expr: &IntegerExpr, _expr: &Expr) {
@@ -461,17 +463,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         // create the necessary blocks
         let then_block = self.append_block("then");
         let cont_block = self.append_block("ifcont");
-        let else_block = if_expr
-            .else_clause
-            .as_ref()
-            .map(|_| {
-                // don't create else block if we don't need to. could probably create one that just
-                // breaks to ifcont and let it get optimized out, but this looks better
-                let block = self.append_block("else");
-                cont_block.move_after(block).unwrap();
-                block
-            })
-            .unwrap_or(cont_block);
+        let else_block = self.append_block("else");
 
         // if
         self.visit_expr(ast, if_expr.condition);
@@ -491,9 +483,9 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         self.builder.position_at_end(else_block);
         let else_value = if_expr.else_clause.as_ref().and_then(|els| {
             self.visit_expr(ast, els.body);
-            self.builder.build_unconditional_branch(cont_block).unwrap();
             self.get_last_basic_value()
         });
+        self.try_append_break(cont_block);
 
         self.builder.position_at_end(cont_block);
 
@@ -511,9 +503,8 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
     fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, _expr: &Expr) {
         // visit arguments
         let mut args = vec![];
-        for arg in &call_expr.args.items {
-            let arg = arg.item;
-            self.visit_expr(ast, arg);
+        for arg in call_expr.args.iter_items() {
+            self.visit_expr(ast, *arg);
             let arg_value = self.get_last_basic_value().unwrap();
             args.push(arg_value.into());
         }

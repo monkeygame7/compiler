@@ -137,9 +137,7 @@ impl AstVisitorMut for Resolver {
             .unwrap_or(Type::Void);
         let params: Vec<_> = func
             .params
-            .items
-            .iter()
-            .map(|item| &item.item)
+            .iter_items()
             .map(|param| {
                 let typ = self
                     .extract_type(&param.type_decl)
@@ -384,10 +382,9 @@ impl AstVisitorMut for Resolver {
 
         let mut arg_types: Types = vec![].into();
 
-        for item in &call_expr.args.items {
-            let id = item.item;
-            self.visit_expr(ast, id);
-            arg_types.0.push(ast.query_expr(id).typ.clone());
+        for id in call_expr.args.iter_items() {
+            self.visit_expr(ast, *id);
+            arg_types.0.push(ast.query_expr(*id).typ.clone());
         }
 
         if params != arg_types {

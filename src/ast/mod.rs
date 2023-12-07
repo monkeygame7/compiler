@@ -99,13 +99,12 @@ impl Ast {
         let item = self.query_item_mut(id);
         match &mut item.kind {
             ItemKind::Func(func) => {
-                assert!(func.params.items.len() == param_ids.len());
+                assert!(func.params.len() == param_ids.len());
                 func.id = func_id;
                 func.params
-                    .items
-                    .iter_mut()
+                    .iter_items_mut()
                     .zip(param_ids)
-                    .for_each(|(itm, var_id)| itm.item.id = var_id)
+                    .for_each(|(itm, var_id)| itm.id = var_id)
             }
             _ => unreachable!("only function items can have function ids"),
         }
