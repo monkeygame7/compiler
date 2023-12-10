@@ -6,11 +6,12 @@ use std::{
 pub use text::SourceText;
 pub use text::TextSpan;
 
-use crate::ast::nodes::UnaryOperator;
-use crate::{ast::nodes::BinaryOperator, compilation::Types};
-use crate::{
-    compilation::Type,
-    parsing::{SyntaxToken, TokenKind},
+use super::{
+    ast::{
+        node::{BinaryOperator, UnaryOperator},
+        parsing::{SyntaxToken, TokenKind},
+    },
+    Type, Types,
 };
 
 #[derive(Clone)]

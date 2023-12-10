@@ -1,22 +1,20 @@
 mod id;
-pub mod nodes;
+pub mod node;
+pub mod parsing;
 mod printer;
 mod visitor;
-use std::fmt::Debug;
 
 pub use id::{Idx, IdxVec};
-use nodes::*;
-
 pub use visitor::AstVisitor;
 pub use visitor::AstVisitorMut;
 
-use crate::{
-    compilation::{FunctionId, Type, VariableId},
-    diagnostics::TextSpan,
-    idx,
-    parsing::SyntaxToken,
-};
+use super::{diagnostics::TextSpan, FunctionId, Type, VariableId};
+use crate::idx;
+use node::*;
+use parsing::SyntaxToken;
 use printer::AstPrinter;
+
+use std::fmt::Debug;
 
 idx!(ItemId);
 idx!(StmtId);

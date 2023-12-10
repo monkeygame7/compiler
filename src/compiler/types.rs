@@ -1,11 +1,10 @@
 use std::{fmt::Display, rc::Rc};
 
-use crate::{
-    ast::{nodes::*, Ast, AstVisitorMut},
+use super::{
+    ast::{node::*, Ast, AstVisitorMut},
     diagnostics::{DiagnosticBag, TextSpan},
+    scope::Scopes,
 };
-
-use super::scope::Scopes;
 
 #[derive(PartialEq, Debug, Clone, Eq)]
 pub enum Type {

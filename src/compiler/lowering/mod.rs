@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -6,18 +6,19 @@ use inkwell::{
     context::Context,
     module::Module,
     passes::PassManager,
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple},
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
     values::{
         AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode,
         PointerValue,
     },
-    IntPredicate,
+    IntPredicate, OptimizationLevel,
 };
 
-use crate::{
-    ast::{nodes::*, Ast, AstVisitor},
-    compilation::{CompilationUnit, Function, Type, VariableId},
+use super::{
+    ast::{node::*, Ast, AstVisitor},
     diagnostics::TextSpan,
+    CompilationUnit, Function, Type, VariableId,
 };
 
 struct FunctionContext<'ctx> {
@@ -98,7 +99,34 @@ impl<'ctx> Compiler<'ctx> {
             fpm.run_on(&f);
         });
 
+        compiler
+            .module
+            .set_triple(&TargetTriple::create("x86_64-pc-linux-gnu"));
+        // compiler.module.print_to_file("code.llvm").unwrap();
+        compiler.module.write_bitcode_to_path(Path::new("code.bc"));
         compiler.module.print_to_stderr();
+
+        Target::initialize_x86(&InitializationConfig::default());
+
+        let opt = OptimizationLevel::None;
+        let reloc = RelocMode::Default;
+        let model = CodeModel::Default;
+        let path = Path::new("test.out");
+        let target = Target::from_name("x86-64").unwrap();
+        let target_machine = target
+            .create_target_machine(
+                &TargetTriple::create("x86_64-pc-linux-gnu"),
+                "x86-64",
+                "+avx2",
+                opt,
+                reloc,
+                model,
+            )
+            .unwrap();
+
+        assert!(target_machine
+            .write_to_file(&compiler.module, FileType::Object, &path)
+            .is_ok());
     }
 
     fn build_fn(&mut self, func: &Function) -> FunctionValue<'ctx> {
@@ -219,14 +247,14 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         let entry = self.context.append_basic_block(llvm_func, "entry");
         // return label will need to be repositioned after visiting the body, but we need it to
         // exist so arbitrary return statements inside the function can jump to it
-        let return_label = self.context.append_basic_block(llvm_func, "return");
+        let return_block = self.context.append_basic_block(llvm_func, "return");
 
         let return_type = &func_def.sig.return_type;
 
         self.current_function = Some(FunctionContext {
             function: llvm_func,
             return_value: None,
-            return_block: return_label,
+            return_block,
         });
         self.builder.position_at_end(entry);
 
@@ -234,7 +262,10 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
             Type::Void => {
                 self.visit_expr(ast, func.body);
 
-                self.builder.position_at_end(return_label);
+                // need to break to return block otherwise entry could be unterminated
+                self.try_append_break(return_block);
+
+                self.builder.position_at_end(return_block);
                 self.builder.build_return(None).unwrap();
             }
             _ => {
@@ -257,9 +288,9 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
                     None => (),
                 }
                 // jump to return in case last call had implicit return
-                self.try_append_break(return_label);
+                self.try_append_break(return_block);
 
-                self.builder.position_at_end(return_label);
+                self.builder.position_at_end(return_block);
                 // return value must be loaded into a register before we can return it
                 let loaded_ret_val = self.builder.build_load(ret_val, "retval").unwrap();
                 self.builder.build_return(Some(&loaded_ret_val)).unwrap();
@@ -270,7 +301,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         // if any statements in the function add labels, they will be appended after the return
         // one, so we have to move it back to the end
         let current_block = llvm_func.get_last_basic_block().unwrap();
-        return_label.move_after(current_block).unwrap();
+        return_block.move_after(current_block).unwrap();
 
         self.current_function.take();
         if llvm_func.verify(true) {

@@ -3,10 +3,10 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::{
-    ast::{nodes::*, Ast, AstVisitor, ExprId},
-    compilation::{FunctionId, VariableId},
+use super::compiler::{
+    ast::{node::*, Ast, AstVisitor, ExprId},
     diagnostics::TextSpan,
+    FunctionId, VariableId,
 };
 
 pub struct Evaluator {
@@ -285,7 +285,7 @@ impl Evaluator {
 mod test {
     use std::vec;
 
-    use crate::compilation::CompilationUnit;
+    use crate::compiler::compile;
 
     use super::*;
 
@@ -328,7 +328,7 @@ mod test {
         }
 
         fn evaluate(&self, expected_result: ResultType) {
-            let compilation = CompilationUnit::compile(&self.actual_input, false);
+            let compilation = compile(&self.actual_input, false);
             match compilation {
                 Ok(mut unit) => {
                     let result = Evaluator::evaluate(&mut unit.ast);

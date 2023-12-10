@@ -1,6 +1,6 @@
-use crate::diagnostics::TextSpan;
+use crate::compiler::diagnostics::TextSpan;
 
-use super::{nodes::*, Ast, ExprId, ItemId, StmtId};
+use super::{node::*, Ast, ExprId, ItemId, StmtId};
 
 pub trait AstVisitor {
     fn visit_item(&mut self, ast: &Ast, item: ItemId) {

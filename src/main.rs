@@ -1,22 +1,67 @@
-mod ast;
-
-mod compilation;
-mod diagnostics;
+mod compiler;
 mod evaluator;
-mod lowering;
-mod parsing;
+mod test;
 
 use colored::Colorize;
-use compilation::CompilationUnit;
-use diagnostics::DiagnosticBag;
-use diagnostics::SourceText;
+use compiler::{
+    diagnostics::{DiagnosticBag, SourceText},
+    lowering::Compiler,
+};
 use evaluator::Evaluator;
 use std::{
     io::{self, Write},
     rc::Rc,
 };
 
-fn main() -> io::Result<()> {
+/*
+ * - compiler
+ *   - compilation node
+ *   - AST
+ *     - parser
+ *     - lexer
+ *   - type checker
+ *   - IRBuilder
+ *   - lowering
+ */
+
+/*
+ * TODO:
+ * - Evaluator
+ *   - llvm jit runner
+ * - proper lowerer
+ *   - create Ast::set_expr/stmt/item to allow mutating AST and replacing nodes with others
+ *     - this is trickier than expected cuz now there's two ways to create the node structs
+ * - add global declaration item (low priority)
+ *
+ * - dedup is_mutable flag
+ *   - should only be in the symbol
+ * - function calling
+ * - continue/break
+ * - for loops
+ * - unicode
+ * - better repl? idk
+ */
+fn main() -> Result<(), &'static str> {
+    // test::test();
+    let ast = compiler::compile(
+        "
+fn best_number: int(first: int, second: int) {
+    first * 100000 + second * 100 + first
+}
+fn main: int() {
+    32
+}
+",
+        false,
+    )
+    .map_err(|_| "compilation error")?;
+    eprintln!("\n--------------\n{}\n--------------\n", ast.src.text);
+    Compiler::compile(&ast);
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn main2() -> io::Result<()> {
     let mut show_tree = false;
     let mut buffer = String::new();
     loop {
@@ -45,9 +90,11 @@ fn main() -> io::Result<()> {
         }
         buffer += &line_buffer;
 
-        let compilation = CompilationUnit::compile(&buffer, show_tree);
+        let compilation = compiler::compile(&buffer, show_tree);
         match compilation {
             Ok(mut program) => {
+                // let mut lowerer = Lowerer::new();
+                // lowerer.lower(&mut program);
                 let result = Evaluator::evaluate(&mut program.ast);
                 match result {
                     evaluator::ResultType::Void => println!(""),

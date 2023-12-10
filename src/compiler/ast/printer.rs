@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::{diagnostics::TextSpan, parsing::SyntaxToken};
+use crate::compiler::diagnostics::TextSpan;
 
-use super::{nodes::*, visitor::AstVisitor, Ast};
+use super::{node::*, parsing::SyntaxToken, visitor::AstVisitor, Ast};
 
 pub struct AstPrinter {
     indent: Vec<&'static str>,

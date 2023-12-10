@@ -1,17 +1,16 @@
 use std::rc::Rc;
 
-use crate::{
-    ast::{
-        nodes::{
+use super::{
+    super::{
+        super::diagnostics::DiagnosticBag,
+        node::{
             BinaryOperator, BinaryOperatorKind, DelimitedSequence, ElseClause, FunctionParam,
             TypeDecl, UnaryOperator, UnaryOperatorKind,
         },
         Ast, ExprId, ItemId, StmtId,
     },
-    diagnostics::DiagnosticBag,
+    Lexer, SyntaxToken, TokenKind,
 };
-
-use super::{Lexer, SyntaxToken, TokenKind};
 
 pub struct Parser<'a> {
     ast: &'a mut Ast,
@@ -433,14 +432,15 @@ mod test {
     use std::fmt::Display;
 
     use crate::{
-        ast::{
-            nodes::{
+        compiler::ast::{
+            node::{
                 AssignExpr, BinaryExpr, BooleanExpr, CallExpr, Expr, FunctionDecl, IfExpr,
-                IntegerExpr, Item, Stmt, UnaryExpr, VariableDecl, VariableExpr, WhileStmt,
+                IntegerExpr, Item, ReturnStmt, Stmt, UnaryExpr, VariableDecl, VariableExpr,
+                WhileStmt,
             },
             AstVisitor,
         },
-        diagnostics::{SourceText, TextSpan},
+        compiler::diagnostics::{SourceText, TextSpan},
     };
 
     use super::*;
@@ -615,12 +615,7 @@ mod test {
             self.visit_expr(ast, while_stmt.body);
         }
 
-        fn visit_return_stmt(
-            &mut self,
-            ast: &Ast,
-            return_stmt: &crate::ast::nodes::ReturnStmt,
-            _stmt: &Stmt,
-        ) {
+        fn visit_return_stmt(&mut self, ast: &Ast, return_stmt: &ReturnStmt, _stmt: &Stmt) {
             self.nodes.push(Matcher::Return);
             if let Some(value) = return_stmt.value {
                 self.visit_expr(ast, value);

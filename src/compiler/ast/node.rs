@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
-use crate::{
-    compilation::{FunctionId, Type, VariableId},
-    diagnostics::TextSpan,
+use super::{
+    super::diagnostics::TextSpan,
     parsing::SyntaxToken,
+    {FunctionId, Type, VariableId},
 };
 
 use super::{ExprId, ItemId, StmtId};

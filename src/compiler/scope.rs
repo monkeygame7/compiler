@@ -1,11 +1,8 @@
-use crate::{
-    ast::{ExprId, Idx, IdxVec},
-    compilation::Type,
-    idx,
-    parsing::SyntaxToken,
+use super::{
+    ast::{parsing::SyntaxToken, ExprId, Idx, IdxVec},
+    Signature, Type,
 };
-
-use super::Signature;
+use crate::idx;
 
 idx!(FunctionId);
 idx!(VariableId);
