@@ -1,27 +1,6 @@
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 
-use super::compiler::{
-    ast::{node::*, Ast, AstVisitor, ExprId},
-    diagnostics::TextSpan,
-    FunctionId, VariableId,
-};
-
-pub struct Evaluator {
-    functions: HashMap<FunctionId, FunctionDef>,
-    scopes: Vec<HashMap<VariableId, ResultType>>,
-    last_result: Option<ResultType>,
-    main_body: Option<ExprId>,
-}
-
-#[derive(Debug)]
-struct FunctionDef {
-    name: String,
-    entry: ExprId,
-    params: Vec<VariableId>,
-}
+use crate::compiler::{CompilationUnit, Program};
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy)]
 pub enum ResultType {
@@ -46,246 +25,30 @@ impl Display for ResultType {
     }
 }
 
+use inkwell::context::Context;
 use ResultType::*;
 
-impl AstVisitor for Evaluator {
-    fn visit_func_decl(&mut self, _ast: &Ast, func: &FunctionDecl, _item: &Item) {
-        let params = func.params.iter_items().map(|item| item.id).collect();
-        let entry = func.body;
-        let name = func.name.literal.clone();
-        self.functions.insert(
-            func.id,
-            FunctionDef {
-                name,
-                entry,
-                params,
-            },
-        );
-        if func.name.literal == "main" {
-            self.main_body = Some(entry);
-        }
-    }
+pub fn evaluate(unit: CompilationUnit) -> ResultType {
+    let context = Context::create();
+    let program = Program::build(&context, &unit);
 
-    fn visit_expr_stmt(&mut self, ast: &Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
-        self.visit_expr(ast, expr_stmt.expr);
-        if expr_stmt.semicolon.is_some() {
-            self.last_result = None;
-        }
-    }
+    let engine = program
+        .ir
+        .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+        .unwrap();
 
-    fn visit_variable_decl(&mut self, ast: &Ast, variable_decl: &VariableDecl, _stmt: &Stmt) {
-        self.visit_expr(ast, variable_decl.initial);
-        let value = self.last_result.take().unwrap();
+    let func = unsafe { engine.get_function::<unsafe extern "C" fn() -> i32>("main") }.unwrap();
 
-        let last_scope = self.scopes.last_mut().unwrap();
-        assert!(!&last_scope.contains_key(&variable_decl.variable));
-        last_scope.insert(variable_decl.variable, value);
-        self.last_result = Some(Void);
-    }
+    let value = unsafe { func.call() };
 
-    fn visit_while_stmt(&mut self, ast: &Ast, while_stmt: &WhileStmt, _stmt: &Stmt) {
-        loop {
-            self.visit_expr(ast, while_stmt.condition);
-            let condition = self.last_result.unwrap().to_bool();
-            if !condition {
-                break;
-            }
-
-            self.visit_expr(ast, while_stmt.body);
-        }
-    }
-
-    fn visit_return_stmt(&mut self, _ast: &Ast, _return_stmt: &ReturnStmt, _stmt: &Stmt) {
-        todo!("evaluate return")
-    }
-
-    fn visit_error(&mut self, _ast: &Ast, _span: &TextSpan, _expr: &Expr) {
-        self.last_result = Some(Undefined);
-    }
-
-    fn visit_integer_expr(&mut self, _ast: &Ast, int_expr: &IntegerExpr, _expr: &Expr) {
-        self.last_result = Some(Integer(int_expr.value));
-    }
-
-    fn visit_boolean_expr(&mut self, _ast: &Ast, bool_expr: &BooleanExpr, _expr: &Expr) {
-        self.last_result = Some(Boolean(bool_expr.value));
-    }
-
-    fn visit_assign_expr(&mut self, ast: &Ast, assign_expr: &AssignExpr, _expr: &Expr) {
-        self.visit_expr(ast, assign_expr.rhs);
-        let value = self.last_result.unwrap();
-
-        let scope = self
-            .scopes
-            .iter_mut()
-            .rev()
-            .filter(|scope| scope.contains_key(&assign_expr.variable))
-            .nth(0)
-            .expect("Variable not found");
-
-        scope.insert(assign_expr.variable, value);
-
-        self.last_result = Some(value)
-    }
-
-    fn visit_binary_expr(&mut self, ast: &Ast, binary_expr: &BinaryExpr, _expr: &Expr) {
-        self.visit_expr(ast, binary_expr.left);
-        let left = self.last_result.take().unwrap();
-        self.visit_expr(ast, binary_expr.right);
-        let right = self.last_result.take().unwrap();
-
-        let result = match (&left, &right) {
-            (Integer(l), Integer(r)) => match binary_expr.operator.kind {
-                BinaryOperatorKind::Add => Integer(l + r),
-                BinaryOperatorKind::Subtract => Integer(l - r),
-                BinaryOperatorKind::Mulitply => Integer(l * r),
-                BinaryOperatorKind::Divide => Integer(l / r),
-                BinaryOperatorKind::BitwiseAnd => Integer(l & r),
-                BinaryOperatorKind::BitwiseOr => Integer(l | r),
-                BinaryOperatorKind::Equals => Boolean(l == r),
-                BinaryOperatorKind::NotEquals => Boolean(l != r),
-                BinaryOperatorKind::GreaterThanOrEquals => Boolean(l >= r),
-                BinaryOperatorKind::GreaterThan => Boolean(l > r),
-                BinaryOperatorKind::LessThanOrEquals => Boolean(l <= r),
-                BinaryOperatorKind::LessThan => Boolean(l < r),
-                _ => Undefined,
-            },
-            (Boolean(l), Boolean(r)) => match binary_expr.operator.kind {
-                BinaryOperatorKind::LogicalAnd => Boolean(*l && *r),
-                BinaryOperatorKind::LogicalOr => Boolean(*l || *r),
-                BinaryOperatorKind::BitwiseAnd => Boolean(l & r),
-                BinaryOperatorKind::BitwiseOr => Boolean(l | r),
-                _ => Undefined,
-            },
-            _ => Undefined,
-        };
-
-        if result == Undefined {
-            unreachable!("Tried to evaluate invalid binary expression");
-        }
-
-        self.last_result = Some(result);
-    }
-
-    fn visit_unary_expr(&mut self, ast: &Ast, unary_expr: &UnaryExpr, _expr: &Expr) {
-        self.visit_expr(ast, unary_expr.operand);
-        let expr_result = self.last_result.take().unwrap();
-        let result = match expr_result {
-            Integer(i) => match unary_expr.operator.kind {
-                UnaryOperatorKind::Identity => Integer(i),
-                UnaryOperatorKind::Negate => Integer(-i),
-                _ => Undefined,
-            },
-            Boolean(b) => match unary_expr.operator.kind {
-                UnaryOperatorKind::LogicalNot => Boolean(!b),
-                _ => Undefined,
-            },
-            _ => Undefined,
-        };
-
-        if result == Undefined {
-            unreachable!("Tried to evaluate invalid unary expression");
-        }
-
-        self.last_result = Some(result);
-    }
-
-    fn visit_block_expr(&mut self, ast: &Ast, block_expr: &BlockExpr, expr: &Expr) {
-        self.enter_scope();
-        self.do_visit_block_expr(ast, block_expr, expr);
-        self.exit_scope();
-    }
-
-    fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
-        self.last_result = self
-            .scopes
-            .iter()
-            .rev()
-            .flat_map(|vars| vars.get(&variable_expr.id))
-            .nth(0)
-            .cloned();
-    }
-
-    fn visit_if_expr(&mut self, ast: &Ast, if_expr: &IfExpr, _expr: &Expr) {
-        self.visit_expr(ast, if_expr.condition);
-        let condition = if let Some(ResultType::Boolean(b)) = self.last_result {
-            b
-        } else {
-            unreachable!("if condition evaluate to boolean");
-        };
-
-        if condition {
-            self.visit_expr(ast, if_expr.then_clause);
-        } else if let Some(else_clause) = &if_expr.else_clause {
-            self.visit_expr(ast, else_clause.body);
-        }
-    }
-
-    fn visit_call_expr(&mut self, ast: &Ast, call_expr: &CallExpr, _expr: &Expr) {
-        self.enter_scope();
-
-        let func = self.functions.get(&call_expr.callee_id).unwrap();
-        let entry = func.entry;
-        assert!(
-            func.params.len() == call_expr.args.len(),
-            "{}({:?}) != {:?}",
-            func.name,
-            func.params,
-            call_expr.args
-        );
-        call_expr
-            .args
-            .iter_items()
-            .zip(func.params.clone())
-            .for_each(|(arg, param)| {
-                self.visit_expr(ast, *arg);
-                let value = self.last_result.take().unwrap();
-                self.scopes.last_mut().unwrap().insert(param, value);
-            });
-
-        self.visit_expr(ast, entry);
-
-        self.exit_scope();
-    }
-}
-
-impl Evaluator {
-    fn new() -> Evaluator {
-        Evaluator {
-            functions: HashMap::new(),
-            scopes: vec![],
-            last_result: None,
-            main_body: None,
-        }
-    }
-
-    pub fn evaluate(ast: &Ast) -> ResultType {
-        let mut evaluator = Self::new();
-        ast.visit(&mut evaluator);
-        evaluator.call_main(ast);
-        evaluator.last_result.take().unwrap_or(Void)
-    }
-
-    fn call_main(&mut self, ast: &Ast) {
-        self.enter_scope();
-        self.visit_expr(ast, self.main_body.expect("No main function found"));
-        self.exit_scope();
-    }
-
-    fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
-    }
-
-    fn exit_scope(&mut self) {
-        self.scopes.pop().expect("Unexpected empty scopes");
-    }
+    ResultType::Integer(value)
 }
 
 #[cfg(test)]
 mod test {
     use std::vec;
 
-    use crate::compiler::compile;
+    use crate::compiler::{compile, diagnostics::TextSpan};
 
     use super::*;
 
@@ -330,8 +93,8 @@ mod test {
         fn evaluate(&self, expected_result: ResultType) {
             let compilation = compile(&self.actual_input, false);
             match compilation {
-                Ok(mut unit) => {
-                    let result = Evaluator::evaluate(&mut unit.ast);
+                Ok(unit) => {
+                    let result = evaluate(unit);
                     assert!(
                         self.expected_spans.is_empty(),
                         "Expected errors in \n{}\nbut found none\n",

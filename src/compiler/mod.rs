@@ -33,7 +33,7 @@ pub struct CompilationUnit {
 }
 
 pub struct Program<'ctx> {
-    ir: Module<'ctx>,
+    pub ir: Module<'ctx>,
 }
 
 impl<'ctx> Program<'ctx> {

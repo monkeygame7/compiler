@@ -7,7 +7,7 @@ use compiler::{
     diagnostics::{DiagnosticBag, SourceText},
     lowering::IRBuilder,
 };
-use evaluator::Evaluator;
+use evaluator::evaluate;
 use inkwell::context::Context;
 use std::{
     io::{self, Write},
@@ -27,19 +27,25 @@ use std::{
 
 /*
  * TODO:
- * - Evaluator
- *   - llvm jit runner
+ * - add global declaration item (low priority)
+ * - new types
+ *   - structs?
+ *   - array
+ *   - string
+ * - add print and input
+ *   - need syscalls
+ *     - only way is to inline assembly >:(
  * - proper lowerer
  *   - create Ast::set_expr/stmt/item to allow mutating AST and replacing nodes with others
  *     - this is trickier than expected cuz now there's two ways to create the node structs
- * - add global declaration item (low priority)
+ *     - might be easier if introduced bound tree that is not tied to specicfic tokens
  *
  * - dedup is_mutable flag
  *   - should only be in the symbol
- * - function calling
  * - continue/break
  * - for loops
  * - unicode
+ * - lazily read input (more for fun)
  * - better repl? idk
  */
 #[allow(dead_code)]
@@ -97,10 +103,10 @@ fn main() -> io::Result<()> {
 
         let compilation = compiler::compile(&buffer, show_tree);
         match compilation {
-            Ok(mut program) => {
+            Ok(program) => {
                 // let mut lowerer = Lowerer::new();
                 // lowerer.lower(&mut program);
-                let result = Evaluator::evaluate(&mut program.ast);
+                let result = evaluate(program);
                 match result {
                     evaluator::ResultType::Void => println!(""),
                     _ => println!("\n{}", result.to_string().purple()),

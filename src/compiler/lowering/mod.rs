@@ -93,7 +93,6 @@ impl<'ctx, 'a> IRBuilder<'ctx, 'a> {
 
         let module = compiler.module;
 
-        module.print_to_stderr();
         module.get_functions().for_each(|f| {
             fpm.run_on(&f);
         });
