@@ -5,9 +5,10 @@ mod test;
 use colored::Colorize;
 use compiler::{
     diagnostics::{DiagnosticBag, SourceText},
-    lowering::Compiler,
+    lowering::IRBuilder,
 };
 use evaluator::Evaluator;
+use inkwell::context::Context;
 use std::{
     io::{self, Write},
     rc::Rc,
@@ -41,9 +42,10 @@ use std::{
  * - unicode
  * - better repl? idk
  */
-fn main() -> Result<(), &'static str> {
-    // test::test();
-    let ast = compiler::compile(
+#[allow(dead_code)]
+fn main2() -> Result<(), &'static str> {
+    test::test();
+    let compilation = compiler::compile(
         "
 fn best_number: int(first: int, second: int) {
     first * 100000 + second * 100 + first
@@ -55,13 +57,16 @@ fn main: int() {
         false,
     )
     .map_err(|_| "compilation error")?;
-    eprintln!("\n--------------\n{}\n--------------\n", ast.src.text);
-    Compiler::compile(&ast);
+    eprintln!(
+        "\n--------------\n{}\n--------------\n",
+        compilation.src.text
+    );
+    let context = Context::create();
+    IRBuilder::build(&compilation, &context);
     Ok(())
 }
 
-#[allow(dead_code)]
-fn main2() -> io::Result<()> {
+fn main() -> io::Result<()> {
     let mut show_tree = false;
     let mut buffer = String::new();
     loop {

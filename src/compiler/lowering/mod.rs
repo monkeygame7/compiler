@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -6,19 +6,18 @@ use inkwell::{
     context::Context,
     module::Module,
     passes::PassManager,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple},
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
     values::{
         AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode,
         PointerValue,
     },
-    IntPredicate, OptimizationLevel,
+    IntPredicate,
 };
 
 use super::{
     ast::{node::*, Ast, AstVisitor},
     diagnostics::TextSpan,
-    CompilationUnit, Function, Type, VariableId,
+    CompilationUnit, Function, GlobalScope, Type, VariableId,
 };
 
 struct FunctionContext<'ctx> {
@@ -48,8 +47,8 @@ impl<'ctx> LastValue<'ctx> {
     }
 }
 
-pub struct Compiler<'ctx> {
-    unit: &'ctx CompilationUnit, // maybe needs separate lifetime?
+pub struct IRBuilder<'ctx, 'a> {
+    scope: &'a GlobalScope, // maybe needs separate lifetime?
     context: &'ctx Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
@@ -59,12 +58,12 @@ pub struct Compiler<'ctx> {
     last_value: Option<LastValue<'ctx>>,
 }
 
-impl<'ctx> Compiler<'ctx> {
-    fn new(unit: &'ctx CompilationUnit, context: &'ctx Context) -> Self {
+impl<'ctx, 'a> IRBuilder<'ctx, 'a> {
+    fn new(scope: &'a GlobalScope, context: &'ctx Context) -> Self {
         let module = context.create_module("test");
         let builder = context.create_builder();
         Self {
-            unit,
+            scope,
             context,
             module,
             builder,
@@ -74,9 +73,8 @@ impl<'ctx> Compiler<'ctx> {
         }
     }
 
-    pub fn compile(unit: &CompilationUnit) {
-        let context = Context::create();
-        let mut compiler = Compiler::new(unit, &context);
+    pub fn build(compilation: &'a CompilationUnit, context: &'ctx Context) -> Module<'ctx> {
+        let mut compiler = IRBuilder::new(&compilation.scope, context);
 
         let fpm = PassManager::create(&compiler.module);
 
@@ -91,49 +89,23 @@ impl<'ctx> Compiler<'ctx> {
 
         fpm.initialize();
 
-        unit.ast.visit(&mut compiler);
+        compilation.ast.visit(&mut compiler);
 
-        compiler.module.print_to_stderr();
-        println!("\n--------------\n");
-        compiler.module.get_functions().for_each(|f| {
+        let module = compiler.module;
+
+        module.print_to_stderr();
+        module.get_functions().for_each(|f| {
             fpm.run_on(&f);
         });
 
-        compiler
-            .module
-            .set_triple(&TargetTriple::create("x86_64-pc-linux-gnu"));
-        // compiler.module.print_to_file("code.llvm").unwrap();
-        compiler.module.write_bitcode_to_path(Path::new("code.bc"));
-        compiler.module.print_to_stderr();
-
-        Target::initialize_x86(&InitializationConfig::default());
-
-        let opt = OptimizationLevel::None;
-        let reloc = RelocMode::Default;
-        let model = CodeModel::Default;
-        let path = Path::new("test.out");
-        let target = Target::from_name("x86-64").unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &TargetTriple::create("x86_64-pc-linux-gnu"),
-                "x86-64",
-                "+avx2",
-                opt,
-                reloc,
-                model,
-            )
-            .unwrap();
-
-        assert!(target_machine
-            .write_to_file(&compiler.module, FileType::Object, &path)
-            .is_ok());
+        module
     }
 
     fn build_fn(&mut self, func: &Function) -> FunctionValue<'ctx> {
         let param_vars: Vec<_> = func
             .params
             .iter()
-            .map(|id| &self.unit.scope.variables[*id])
+            .map(|id| &self.scope.variables[*id])
             .collect();
 
         let param_types: Vec<_> = param_vars
@@ -226,7 +198,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 }
 
-impl<'ctx> AstVisitor for Compiler<'ctx> {
+impl<'ctx, 'a> AstVisitor for IRBuilder<'ctx, 'a> {
     fn visit_expr_stmt(&mut self, ast: &Ast, expr_stmt: &ExprStmt, _stmt: &Stmt) {
         self.visit_expr(ast, expr_stmt.expr);
         if expr_stmt.semicolon.is_some() {
@@ -236,7 +208,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
     }
 
     fn visit_func_decl(&mut self, ast: &Ast, func: &FunctionDecl, _item: &Item) {
-        let func_def = &self.unit.scope.functions[func.id];
+        let func_def = &self.scope.functions[func.id];
         let llvm_func = self.build_fn(&func_def);
 
         // register function as variable so it can be called later
@@ -316,7 +288,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
         self.visit_expr(ast, variable_decl.initial);
         let initial_value = self.get_last_basic_value().unwrap();
 
-        let symbol = &self.unit.scope.variables[variable_decl.variable];
+        let symbol = &self.scope.variables[variable_decl.variable];
         let typ = self.create_basic_type(&symbol.typ);
         let value = if symbol.is_mutable {
             let alloc = self.builder.build_alloca(typ, &symbol.identifier).unwrap();
@@ -389,7 +361,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
     }
 
     fn visit_assign_expr(&mut self, ast: &Ast, assign_expr: &AssignExpr, _expr: &Expr) {
-        let symbol = &self.unit.scope.variables[assign_expr.variable];
+        let symbol = &self.scope.variables[assign_expr.variable];
 
         self.visit_expr(ast, assign_expr.rhs);
         let rhs = self.get_last_basic_value().unwrap();
@@ -471,7 +443,7 @@ impl<'ctx> AstVisitor for Compiler<'ctx> {
     fn visit_variable_expr(&mut self, _ast: &Ast, variable_expr: &VariableExpr, _expr: &Expr) {
         let id = variable_expr.id;
         let var = self.variables.get(&id).unwrap();
-        let symbol = &self.unit.scope.variables[id];
+        let symbol = &self.scope.variables[id];
         match symbol.typ {
             Type::Int | Type::Bool => {
                 let value = if symbol.is_mutable {

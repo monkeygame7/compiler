@@ -4,6 +4,8 @@ pub mod lowering;
 mod scope;
 mod types;
 pub use ast::Ast;
+use inkwell::context::Context;
+use inkwell::module::Module;
 pub use scope::Function;
 pub use scope::FunctionId;
 pub use scope::GlobalScope;
@@ -15,17 +17,30 @@ pub use types::Types;
 use std::rc::Rc;
 
 use {
-    diagnostics::{DiagnosticBag, SourceText},
     ast::parsing::{Lexer, Parser},
+    diagnostics::{DiagnosticBag, SourceText},
 };
 
-use self::types::Resolver;
+use types::Resolver;
+
+use self::lowering::IRBuilder;
 
 pub struct CompilationUnit {
     pub src: SourceText,
     pub ast: Ast,
     pub diagnostics: Rc<DiagnosticBag>,
     pub scope: GlobalScope,
+}
+
+pub struct Program<'ctx> {
+    ir: Module<'ctx>,
+}
+
+impl<'ctx> Program<'ctx> {
+    pub fn build(context: &'ctx Context, compilation: &CompilationUnit) -> Self {
+        let module = IRBuilder::build(compilation, &context);
+        Program { ir: module }
+    }
 }
 
 pub fn compile(
